@@ -23,5 +23,6 @@ export default defineConfig([
     target: 'node20',
     dts: false,
     sourcemap: true,
+    noExternal: [/.*/],
   },
 ]);
