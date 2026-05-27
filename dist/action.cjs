@@ -9115,7 +9115,7 @@ async function run(options = {}) {
 
 // src/action.ts
 function getInput(name) {
-  return (process.env[`INPUT_${name.replace(/-/g, "_").toUpperCase()}`] ?? "").trim();
+  return (process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] ?? "").trim();
 }
 function setOutput(name, value) {
   const outputFile = process.env.GITHUB_OUTPUT;

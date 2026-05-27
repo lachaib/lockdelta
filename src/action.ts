@@ -5,7 +5,7 @@ import { generateMarkdown } from './action/markdown.js';
 import { run } from './index.js';
 
 function getInput(name: string): string {
-  return (process.env[`INPUT_${name.replace(/-/g, '_').toUpperCase()}`] ?? '').trim();
+  return (process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] ?? '').trim();
 }
 
 function setOutput(name: string, value: string): void {
