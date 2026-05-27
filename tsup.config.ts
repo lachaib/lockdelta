@@ -19,10 +19,11 @@ export default defineConfig([
   },
   {
     entry: { action: 'src/action.ts' },
-    format: ['esm'],
+    format: ['cjs'],
     target: 'node20',
     dts: false,
     sourcemap: true,
     noExternal: [/.*/],
+    outExtension: () => ({ js: '.js' }),
   },
 ]);
