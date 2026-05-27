@@ -1,6 +1,6 @@
-import { posix } from 'path';
-import type { FileSource, LockfilePair } from '../types.js';
+import { posix } from 'node:path';
 import { getAllEcosystems, getEcosystemForLockfile } from '../ecosystems/index.js';
+import type { FileSource, LockfilePair } from '../types.js';
 
 export interface LockfileInfo {
   path: string;
@@ -82,6 +82,7 @@ export function resolveLockfilePair(
       basePath: chosen.path,
       baseType: chosen.type,
       headPath: chosen.path,
+      // biome-ignore lint/style/noNonNullAssertion: path is guaranteed present (comes from common set)
       headType: headByPath.get(chosen.path)!.type,
       migrationNote: null,
       ecosystemName: chosen.ecosystemName,

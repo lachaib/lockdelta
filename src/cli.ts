@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { writeFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { run } from './index.js';
 
@@ -11,22 +11,22 @@ program
   .option(
     '--base <ref>',
     'Base git ref (default: HEAD~1). In CI, reads GITHUB_BASE_REF — may need "origin/" prefix.',
-    process.env['GITHUB_BASE_REF'],
+    process.env.GITHUB_BASE_REF,
   )
   .option(
     '--head <ref>',
     'Head git ref (default: HEAD). In CI, reads GITHUB_HEAD_REF.',
-    process.env['GITHUB_HEAD_REF'],
+    process.env.GITHUB_HEAD_REF,
   )
   .option(
     '--pr <number>',
     'GitHub PR number. Fetches exact SHAs via gh CLI.',
-    process.env['GITHUB_PR_NUMBER'],
+    process.env.GITHUB_PR_NUMBER,
   )
   .option(
     '--repo <owner/name>',
     'GitHub repo in OWNER/NAME format. Auto-detected if omitted.',
-    process.env['GITHUB_REPOSITORY'],
+    process.env.GITHUB_REPOSITORY,
   )
   .option('--lockfile <path>', 'Specific lockfile path. Auto-discovers all lockfiles if omitted.')
   .option('--type <type>', 'Force lockfile type: uv, poetry, pdm. Only used with --lockfile.')
@@ -47,7 +47,7 @@ program
         onNote: (msg) => process.stderr.write(`Note: ${msg}\n`),
       });
 
-      const json = JSON.stringify(report, null, 2) + '\n';
+      const json = `${JSON.stringify(report, null, 2)}\n`;
 
       if (opts.output) {
         writeFileSync(opts.output, json, 'utf-8');

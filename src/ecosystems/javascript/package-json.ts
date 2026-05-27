@@ -26,7 +26,7 @@ export function parseDirectDeps(content: string): DirectDeps {
     }
   }
 
-  const devDeps = data['devDependencies'];
+  const devDeps = data.devDependencies;
   if (devDeps && typeof devDeps === 'object') {
     for (const name of Object.keys(devDeps)) {
       const normalized = normalizeJsName(name);

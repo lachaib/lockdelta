@@ -14,7 +14,7 @@ export function parseDirectDeps(content: string): DirectDeps {
     return { prod, dev: new Set() };
   }
 
-  const imports = data['imports'] as Record<string, string> | undefined;
+  const imports = data.imports as Record<string, string> | undefined;
   if (imports) {
     for (const specifier of Object.values(imports)) {
       const name = extractPackageName(specifier);
@@ -22,7 +22,7 @@ export function parseDirectDeps(content: string): DirectDeps {
     }
   }
 
-  const workspace = data['workspace'] as { dependencies?: string[] } | undefined;
+  const workspace = data.workspace as { dependencies?: string[] } | undefined;
   for (const specifier of workspace?.dependencies ?? []) {
     const name = extractPackageName(specifier);
     if (name) prod.add(normalizeDenoName(name));

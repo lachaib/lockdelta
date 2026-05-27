@@ -1,9 +1,9 @@
 import type { Ecosystem, SupportedLockfile } from '../base.js';
-import { parseNpmLock } from './parsers/npm.js';
-import { parseYarnLock } from './parsers/yarn.js';
-import { parsePnpmLock } from './parsers/pnpm.js';
-import { parseBunLock } from './parsers/bun.js';
 import { normalizeJsName, parseDirectDeps } from './package-json.js';
+import { parseBunLock } from './parsers/bun.js';
+import { parseNpmLock } from './parsers/npm.js';
+import { parsePnpmLock } from './parsers/pnpm.js';
+import { parseYarnLock } from './parsers/yarn.js';
 
 const SUPPORTED_LOCKFILES: SupportedLockfile[] = [
   { filename: 'package-lock.json', type: 'npm' },

@@ -1,4 +1,4 @@
-import { execFileSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
 
 export function gitShow(ref: string, path: string): string | null {
   try {
@@ -18,10 +18,7 @@ export function gitLsTree(ref: string): string[] {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    return result
-      .trim()
-      .split('\n')
-      .filter(Boolean);
+    return result.trim().split('\n').filter(Boolean);
   } catch {
     return [];
   }

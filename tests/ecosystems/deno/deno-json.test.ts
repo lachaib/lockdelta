@@ -1,7 +1,7 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseDirectDeps, normalizeDenoName } from '../../../src/ecosystems/deno/deno-json.js';
+import { normalizeDenoName, parseDirectDeps } from '../../../src/ecosystems/deno/deno-json.js';
 
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dirname, '../../fixtures/deno/deno-json', name), 'utf-8');

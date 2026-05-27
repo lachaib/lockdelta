@@ -1,9 +1,9 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  parseDirectDeps,
   normalizeJsName,
+  parseDirectDeps,
 } from '../../../src/ecosystems/javascript/package-json.js';
 
 const fixture = (name: string) =>

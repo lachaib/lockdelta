@@ -42,7 +42,7 @@ export async function postPrComment(
   if (!prNumber) throw new Error('post-comment requires a PR number');
   if (!repo) throw new Error('post-comment requires repo to be set');
 
-  const t = process.env['GITHUB_TOKEN'];
+  const t = process.env.GITHUB_TOKEN;
   if (!t) throw new Error('GITHUB_TOKEN is required for post-comment');
 
   const body = `${MARKER}\n\n${markdown}`;
@@ -68,7 +68,7 @@ export async function postPrComment(
 export async function hidePrComment(prNumber: string, repo?: string): Promise<void> {
   if (!prNumber || !repo) return;
 
-  const t = process.env['GITHUB_TOKEN'];
+  const t = process.env.GITHUB_TOKEN;
   if (!t) return;
 
   const existing = await findExistingComment(prNumber, repo, t);

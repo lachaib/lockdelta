@@ -1,13 +1,13 @@
-import { posix } from 'path';
-import type { DiffReport, FileSource, LockfileEntry, LockfilePair } from '../types.js';
+import { posix } from 'node:path';
 import { getEcosystemByName, getEcosystemForLockfile } from '../ecosystems/index.js';
+import type { DiffReport, FileSource, LockfileEntry, LockfilePair } from '../types.js';
+import { diffPackages } from './diff.js';
 import {
   findAllLockfiles,
   findLockfiles,
   groupByWorkspace,
   resolveLockfilePair,
 } from './discovery.js';
-import { diffPackages } from './diff.js';
 
 export async function buildLockfileEntry(
   pair: LockfilePair,

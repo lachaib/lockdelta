@@ -1,9 +1,9 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseDenoLock } from '../../../src/ecosystems/deno/parsers/deno-lock.js';
 import { diffPackages } from '../../../src/core/diff.js';
 import { normalizeDenoName } from '../../../src/ecosystems/deno/deno-json.js';
+import { parseDenoLock } from '../../../src/ecosystems/deno/parsers/deno-lock.js';
 import { directDeps } from '../../helpers.js';
 
 const fixture = (name: string) =>
@@ -13,8 +13,8 @@ describe('deno.lock parser', () => {
   describe('v3 format', () => {
     it('parses npm packages', () => {
       const pkgs = parseDenoLock(fixture('v3-base.lock'));
-      expect(pkgs['chalk']).toBe('5.3.0');
-      expect(pkgs['zod']).toBe('3.22.4');
+      expect(pkgs.chalk).toBe('5.3.0');
+      expect(pkgs.zod).toBe('3.22.4');
     });
 
     it('parses jsr packages with jsr: prefix', () => {
@@ -26,16 +26,21 @@ describe('deno.lock parser', () => {
       const base = parseDenoLock(fixture('v3-base.lock'));
       const head = parseDenoLock(fixture('v3-head.lock'));
 
-      const changes = diffPackages(base, head, directDeps(['chalk', 'zod', 'hono']), normalizeDenoName);
+      const changes = diffPackages(
+        base,
+        head,
+        directDeps(['chalk', 'zod', 'hono']),
+        normalizeDenoName,
+      );
       const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
 
-      expect(byName['chalk'].change_type).toBe('updated');
-      expect(byName['chalk'].old_version).toBe('5.3.0');
-      expect(byName['chalk'].new_version).toBe('5.4.1');
-      expect(byName['chalk'].is_direct).toBe(true);
+      expect(byName.chalk.change_type).toBe('updated');
+      expect(byName.chalk.old_version).toBe('5.3.0');
+      expect(byName.chalk.new_version).toBe('5.4.1');
+      expect(byName.chalk.is_direct).toBe(true);
 
-      expect(byName['hono'].change_type).toBe('added');
-      expect(byName['hono'].is_direct).toBe(true);
+      expect(byName.hono.change_type).toBe('added');
+      expect(byName.hono.is_direct).toBe(true);
 
       expect(byName['jsr:@std/path'].change_type).toBe('updated');
       expect(byName['jsr:@std/path'].old_version).toBe('0.224.0');

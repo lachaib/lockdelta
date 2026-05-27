@@ -1,15 +1,15 @@
-import { appendFileSync, readFileSync, writeFileSync } from 'fs';
-import { run } from './index.js';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { hidePrComment, postPrComment } from './action/comment.js';
 import { applyFilters } from './action/filters.js';
 import { generateMarkdown } from './action/markdown.js';
-import { postPrComment, hidePrComment } from './action/comment.js';
+import { run } from './index.js';
 
 function getInput(name: string): string {
   return (process.env[`INPUT_${name.replace(/-/g, '_').toUpperCase()}`] ?? '').trim();
 }
 
 function setOutput(name: string, value: string): void {
-  const outputFile = process.env['GITHUB_OUTPUT'];
+  const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     const delimiter = `DEPDIFF_${Math.random().toString(36).slice(2).toUpperCase()}`;
     appendFileSync(outputFile, `${name}<<${delimiter}\n${value}\n${delimiter}\n`);
@@ -27,7 +27,7 @@ function logNotice(message: string): void {
 }
 
 function readEventPayload(): Record<string, unknown> | null {
-  const eventPath = process.env['GITHUB_EVENT_PATH'];
+  const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) return null;
   try {
     return JSON.parse(readFileSync(eventPath, 'utf-8')) as Record<string, unknown>;
@@ -39,8 +39,8 @@ function readEventPayload(): Record<string, unknown> | null {
 function detectPrNumber(): string {
   const event = readEventPayload();
   if (!event) return '';
-  const pr = event['pull_request'] as { number?: number } | undefined;
-  const num = pr?.number ?? (event['number'] as number | undefined);
+  const pr = event.pull_request as { number?: number } | undefined;
+  const num = pr?.number ?? (event.number as number | undefined);
   return num != null ? String(num) : '';
 }
 
@@ -49,8 +49,8 @@ const NULL_SHA = '0000000000000000000000000000000000000000';
 function detectPushShas(): { baseSha: string; headSha: string } | null {
   const event = readEventPayload();
   if (!event) return null;
-  const before = event['before'] as string | undefined;
-  const after = event['after'] as string | undefined;
+  const before = event.before as string | undefined;
+  const after = event.after as string | undefined;
   if (!before || !after || before === NULL_SHA) return null;
   return { baseSha: before, headSha: after };
 }
@@ -58,12 +58,12 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
 (async () => {
   try {
     const prNumber = getInput('pr-number') || detectPrNumber();
-    const repo = getInput('repo') || process.env['GITHUB_REPOSITORY'] || '';
+    const repo = getInput('repo') || process.env.GITHUB_REPOSITORY || '';
     const pushShas = !prNumber ? detectPushShas() : null;
 
     const report = await run({
-      base: getInput('base-ref') || process.env['GITHUB_BASE_REF'],
-      head: getInput('head-ref') || process.env['GITHUB_HEAD_REF'],
+      base: getInput('base-ref') || process.env.GITHUB_BASE_REF,
+      head: getInput('head-ref') || process.env.GITHUB_HEAD_REF,
       prNumber: prNumber || undefined,
       baseSha: pushShas?.baseSha,
       headSha: pushShas?.headSha,

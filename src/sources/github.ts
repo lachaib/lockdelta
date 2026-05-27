@@ -1,9 +1,9 @@
-import { execFileSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
 
 const API_BASE = 'https://api.github.com';
 
 function token(): string {
-  const t = process.env['GITHUB_TOKEN'];
+  const t = process.env.GITHUB_TOKEN;
   if (!t) throw new Error('GITHUB_TOKEN is required for GitHub API access');
   return t;
 }
@@ -52,7 +52,7 @@ export async function getPrShas(prNumber: string, repo: string): Promise<PrShas>
 }
 
 export function detectRepo(): string {
-  const fromEnv = process.env['GITHUB_REPOSITORY'];
+  const fromEnv = process.env.GITHUB_REPOSITORY;
   if (fromEnv) return fromEnv;
 
   try {
@@ -66,7 +66,5 @@ export function detectRepo(): string {
     // fall through
   }
 
-  throw new Error(
-    'Could not detect GitHub repo — set GITHUB_REPOSITORY or pass --repo',
-  );
+  throw new Error('Could not detect GitHub repo — set GITHUB_REPOSITORY or pass --repo');
 }

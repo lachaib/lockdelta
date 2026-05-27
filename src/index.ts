@@ -1,10 +1,17 @@
-import { readFileSync } from 'fs';
-import type { DiffReport, FileSource } from './types.js';
-import { collectLockfileEntries, buildDiffReport } from './core/report.js';
+import { readFileSync } from 'node:fs';
+import { buildDiffReport, collectLockfileEntries } from './core/report.js';
 import { gitLsTree, gitShow } from './sources/git.js';
-import { detectRepo, ghFileAtSha, ghLsTree, getPrShas } from './sources/github.js';
+import { detectRepo, getPrShas, ghFileAtSha, ghLsTree } from './sources/github.js';
+import type { DiffReport, FileSource } from './types.js';
 
-export type { DiffReport, LockfileEntry, PackageChange, MigrationInfo, LockfilePair, DirectDeps } from './types.js';
+export type {
+  DiffReport,
+  LockfileEntry,
+  PackageChange,
+  MigrationInfo,
+  LockfilePair,
+  DirectDeps,
+} from './types.js';
 export type { Ecosystem, SupportedLockfile } from './ecosystems/base.js';
 export { registerEcosystem } from './ecosystems/index.js';
 
@@ -28,7 +35,11 @@ async function resolveApiShas(
   options: RunOptions,
 ): Promise<{ baseSha: string; headSha: string; repo: string } | null> {
   if (options.baseSha && options.headSha) {
-    return { baseSha: options.baseSha, headSha: options.headSha, repo: options.repo ?? detectRepo() };
+    return {
+      baseSha: options.baseSha,
+      headSha: options.headSha,
+      repo: options.repo ?? detectRepo(),
+    };
   }
   if (options.prNumber) {
     const repo = options.repo ?? detectRepo();
@@ -53,8 +64,10 @@ export async function run(options: RunOptions = {}): Promise<DiffReport> {
       }
     };
 
-    const getBase: FileSource = (path) => Promise.resolve(path === oldPath ? readLocal(oldPath) : null);
-    const getHead: FileSource = (path) => Promise.resolve(path === newPath ? readLocal(newPath) : null);
+    const getBase: FileSource = (path) =>
+      Promise.resolve(path === oldPath ? readLocal(oldPath) : null);
+    const getHead: FileSource = (path) =>
+      Promise.resolve(path === newPath ? readLocal(newPath) : null);
 
     const lockfiles = await collectLockfileEntries({
       getBase,

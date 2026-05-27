@@ -61,10 +61,10 @@ describe('diffPackages', () => {
       norm,
     );
     const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
-    expect(byName['requests'].is_direct).toBe(true);
-    expect(byName['requests'].is_dev).toBe(false);
-    expect(byName['urllib3'].is_direct).toBe(false);
-    expect(byName['urllib3'].is_dev).toBe(false);
+    expect(byName.requests.is_direct).toBe(true);
+    expect(byName.requests.is_dev).toBe(false);
+    expect(byName.urllib3.is_direct).toBe(false);
+    expect(byName.urllib3.is_dev).toBe(false);
   });
 
   it('marks dev dependencies correctly', () => {
@@ -75,10 +75,10 @@ describe('diffPackages', () => {
       norm,
     );
     const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
-    expect(byName['pytest'].is_direct).toBe(true);
-    expect(byName['pytest'].is_dev).toBe(true);
-    expect(byName['urllib3'].is_direct).toBe(false);
-    expect(byName['urllib3'].is_dev).toBe(false);
+    expect(byName.pytest.is_direct).toBe(true);
+    expect(byName.pytest.is_dev).toBe(true);
+    expect(byName.urllib3.is_direct).toBe(false);
+    expect(byName.urllib3.is_dev).toBe(false);
   });
 
   it('handles name normalization for direct dep matching', () => {
@@ -103,9 +103,9 @@ describe('diffPackages', () => {
     const changes = diffPackages(base, head, directDeps(['requests']), norm);
 
     const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
-    expect(byName['requests'].change_type).toBe('updated');
-    expect(byName['old_dep'].change_type).toBe('removed');
-    expect(byName['new_dep'].change_type).toBe('added');
+    expect(byName.requests.change_type).toBe('updated');
+    expect(byName.old_dep.change_type).toBe('removed');
+    expect(byName.new_dep.change_type).toBe('added');
     expect('stable' in byName).toBe(false);
     expect(changes).toHaveLength(3);
   });

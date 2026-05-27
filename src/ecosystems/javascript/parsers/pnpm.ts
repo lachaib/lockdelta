@@ -19,7 +19,7 @@ export function parsePnpmLock(content: string): Record<string, string> {
 
 function parseLockfileVersion(v: string | number | undefined): number {
   if (typeof v === 'number') return v;
-  if (typeof v === 'string') return parseFloat(v);
+  if (typeof v === 'string') return Number.parseFloat(v);
   return 0;
 }
 
@@ -27,7 +27,8 @@ function parsePnpmV9(packages: Record<string, unknown>): Record<string, string> 
   const result: Record<string, string> = {};
 
   for (const key of Object.keys(packages)) {
-    let name: string, version: string;
+    let name: string;
+    let version: string;
 
     if (key.startsWith('@')) {
       const atIdx = key.indexOf('@', 1);
@@ -56,7 +57,8 @@ function parsePnpmLegacy(packages: Record<string, unknown>): Record<string, stri
   for (const key of Object.keys(packages)) {
     const cleaned = key.startsWith('/') ? key.slice(1) : key;
 
-    let name: string, version: string;
+    let name: string;
+    let version: string;
 
     if (cleaned.startsWith('@')) {
       // Scoped package: @scope/name/version (v5) or @scope/name@version (v6)

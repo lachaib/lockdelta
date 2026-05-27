@@ -22,8 +22,8 @@ export function parseDirectDeps(content: string): DirectDeps {
   }
 
   // PEP 517/518: [project].dependencies → prod
-  const project = data['project'] as Record<string, unknown> | undefined;
-  const pep517Deps = project?.['dependencies'] as string[] | undefined;
+  const project = data.project as Record<string, unknown> | undefined;
+  const pep517Deps = project?.dependencies as string[] | undefined;
   if (Array.isArray(pep517Deps)) {
     for (const dep of pep517Deps) {
       const name = extractPkgName(dep);
@@ -44,11 +44,11 @@ export function parseDirectDeps(content: string): DirectDeps {
     }
   }
 
-  const tool = data['tool'] as Record<string, unknown> | undefined;
-  const poetry = tool?.['poetry'] as Record<string, unknown> | undefined;
+  const tool = data.tool as Record<string, unknown> | undefined;
+  const poetry = tool?.poetry as Record<string, unknown> | undefined;
   if (poetry) {
     // [tool.poetry.dependencies] → prod
-    const poetryDeps = poetry['dependencies'] as Record<string, unknown> | undefined;
+    const poetryDeps = poetry.dependencies as Record<string, unknown> | undefined;
     if (poetryDeps) {
       for (const key of Object.keys(poetryDeps)) {
         if (key.toLowerCase() !== 'python') prod.add(normalizePythonName(key));
@@ -65,10 +65,10 @@ export function parseDirectDeps(content: string): DirectDeps {
     }
 
     // [tool.poetry.group.*].dependencies → dev
-    const groups = poetry['group'] as Record<string, Record<string, unknown>> | undefined;
+    const groups = poetry.group as Record<string, Record<string, unknown>> | undefined;
     if (groups) {
       for (const group of Object.values(groups)) {
-        const groupDeps = group['dependencies'] as Record<string, unknown> | undefined;
+        const groupDeps = group.dependencies as Record<string, unknown> | undefined;
         if (groupDeps) {
           for (const key of Object.keys(groupDeps)) {
             const normalized = normalizePythonName(key);
@@ -80,7 +80,7 @@ export function parseDirectDeps(content: string): DirectDeps {
   }
 
   // [tool.uv.dev-dependencies] → dev
-  const uv = tool?.['uv'] as Record<string, unknown> | undefined;
+  const uv = tool?.uv as Record<string, unknown> | undefined;
   const uvDevDeps = uv?.['dev-dependencies'] as string[] | undefined;
   if (Array.isArray(uvDevDeps)) {
     for (const dep of uvDevDeps) {

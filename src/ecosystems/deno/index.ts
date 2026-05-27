@@ -1,6 +1,6 @@
 import type { Ecosystem, SupportedLockfile } from '../base.js';
-import { parseDenoLock } from './parsers/deno-lock.js';
 import { normalizeDenoName, parseDirectDeps } from './deno-json.js';
+import { parseDenoLock } from './parsers/deno-lock.js';
 
 const SUPPORTED_LOCKFILES: SupportedLockfile[] = [{ filename: 'deno.lock', type: 'deno' }];
 

@@ -14,10 +14,7 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "action.yml"
-  ],
+  "files": ["dist", "action.yml"],
   "scripts": {
     "build": "tsup",
     "test": "vitest run",

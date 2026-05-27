@@ -1,7 +1,7 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseDirectDeps, normalizePythonName } from '../../../src/ecosystems/python/pyproject.js';
+import { normalizePythonName, parseDirectDeps } from '../../../src/ecosystems/python/pyproject.js';
 
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dirname, '../../fixtures/python/pyproject', name), 'utf-8');

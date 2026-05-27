@@ -1,9 +1,9 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseYarnLock } from '../../../src/ecosystems/javascript/parsers/yarn.js';
 import { diffPackages } from '../../../src/core/diff.js';
 import { normalizeJsName } from '../../../src/ecosystems/javascript/package-json.js';
+import { parseYarnLock } from '../../../src/ecosystems/javascript/parsers/yarn.js';
 import { directDeps } from '../../helpers.js';
 
 const fixture = (name: string) =>
@@ -13,9 +13,9 @@ describe('yarn.lock parser', () => {
   describe('yarn classic (v1)', () => {
     it('parses packages from v1 format', () => {
       const pkgs = parseYarnLock(fixture('v1-base.lock'));
-      expect(pkgs['express']).toBe('4.18.2');
-      expect(pkgs['lodash']).toBe('4.17.21');
-      expect(pkgs['typescript']).toBe('5.2.2');
+      expect(pkgs.express).toBe('4.18.2');
+      expect(pkgs.lodash).toBe('4.17.21');
+      expect(pkgs.typescript).toBe('5.2.2');
     });
 
     it('handles scoped packages with multiple specifiers', () => {
@@ -34,18 +34,18 @@ describe('yarn.lock parser', () => {
       );
       const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
 
-      expect(byName['express'].change_type).toBe('updated');
-      expect(byName['express'].old_version).toBe('4.18.2');
-      expect(byName['express'].new_version).toBe('4.19.2');
+      expect(byName.express.change_type).toBe('updated');
+      expect(byName.express.old_version).toBe('4.18.2');
+      expect(byName.express.new_version).toBe('4.19.2');
 
       expect(byName['@babel/core'].change_type).toBe('updated');
       expect(byName['@babel/core'].old_version).toBe('7.23.9');
       expect(byName['@babel/core'].new_version).toBe('7.24.5');
 
-      expect(byName['axios'].change_type).toBe('added');
-      expect(byName['axios'].is_direct).toBe(false);
+      expect(byName.axios.change_type).toBe('added');
+      expect(byName.axios.is_direct).toBe(false);
 
-      expect(byName['typescript'].change_type).toBe('updated');
+      expect(byName.typescript.change_type).toBe('updated');
 
       expect('lodash' in byName).toBe(false);
     });
@@ -54,10 +54,10 @@ describe('yarn.lock parser', () => {
   describe('yarn berry (v2+)', () => {
     it('parses packages from Berry format', () => {
       const pkgs = parseYarnLock(fixture('berry-base.lock'));
-      expect(pkgs['express']).toBe('4.18.2');
-      expect(pkgs['lodash']).toBe('4.17.21');
+      expect(pkgs.express).toBe('4.18.2');
+      expect(pkgs.lodash).toBe('4.17.21');
       expect(pkgs['@babel/core']).toBe('7.24.0');
-      expect(pkgs['typescript']).toBe('5.4.5');
+      expect(pkgs.typescript).toBe('5.4.5');
     });
 
     it('excludes workspace packages (linkType: soft)', () => {
@@ -77,14 +77,14 @@ describe('yarn.lock parser', () => {
       const changes = diffPackages(base, head, directDeps(['express', 'lodash']), normalizeJsName);
       const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
 
-      expect(byName['express'].change_type).toBe('updated');
-      expect(byName['express'].new_version).toBe('4.19.2');
-      expect(byName['express'].is_direct).toBe(true);
+      expect(byName.express.change_type).toBe('updated');
+      expect(byName.express.new_version).toBe('4.19.2');
+      expect(byName.express.is_direct).toBe(true);
 
       expect(byName['@babel/core'].change_type).toBe('updated');
       expect(byName['@babel/core'].is_direct).toBe(false);
 
-      expect(byName['axios'].change_type).toBe('added');
+      expect(byName.axios.change_type).toBe('added');
       expect('lodash' in byName).toBe(false);
     });
   });
@@ -94,14 +94,14 @@ describe('yarn.lock parser', () => {
       const content = fixture('v1-base.lock');
       expect(content).not.toContain('__metadata');
       const pkgs = parseYarnLock(content);
-      expect(pkgs['express']).toBe('4.18.2');
+      expect(pkgs.express).toBe('4.18.2');
     });
 
     it('correctly identifies Berry format (has __metadata)', () => {
       const content = fixture('berry-base.lock');
       expect(content).toContain('__metadata:');
       const pkgs = parseYarnLock(content);
-      expect(pkgs['express']).toBe('4.18.2');
+      expect(pkgs.express).toBe('4.18.2');
     });
   });
 });

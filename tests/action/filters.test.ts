@@ -2,43 +2,53 @@ import { describe, expect, it } from 'vitest';
 import { applyFilters } from '../../src/action/filters.js';
 import type { PackageChange } from '../../src/types.js';
 
-function makeChange(name: string, change_type: PackageChange['change_type'] = 'updated'): PackageChange {
-  return { name, change_type, old_version: '1.0.0', new_version: '2.0.0', is_direct: false, is_dev: false };
+function makeChange(
+  name: string,
+  change_type: PackageChange['change_type'] = 'updated',
+): PackageChange {
+  return {
+    name,
+    change_type,
+    old_version: '1.0.0',
+    new_version: '2.0.0',
+    is_direct: false,
+    is_dev: false,
+  };
 }
 
 describe('applyFilters', () => {
   it('returns true when a package in the group changed', () => {
     const changes = [makeChange('requests'), makeChange('httpx')];
     const result = applyFilters('auth:\n  - pyjwt\n  - requests', changes);
-    expect(result['auth']).toBe(true);
+    expect(result.auth).toBe(true);
   });
 
   it('returns false when no package in the group changed', () => {
     const changes = [makeChange('lodash')];
     const result = applyFilters('auth:\n  - pyjwt\n  - requests', changes);
-    expect(result['auth']).toBe(false);
+    expect(result.auth).toBe(false);
   });
 
   it('is case-insensitive', () => {
     const changes = [makeChange('Requests')];
     const result = applyFilters('auth:\n  - requests', changes);
-    expect(result['auth']).toBe(true);
+    expect(result.auth).toBe(true);
   });
 
   it('handles multiple groups independently', () => {
     const changes = [makeChange('requests'), makeChange('express')];
     const yaml = 'http:\n  - requests\n  - httpx\njs:\n  - express\n  - lodash';
     const result = applyFilters(yaml, changes);
-    expect(result['http']).toBe(true);
-    expect(result['js']).toBe(true);
+    expect(result.http).toBe(true);
+    expect(result.js).toBe(true);
   });
 
   it('returns false for a group when only some packages changed', () => {
     const changes = [makeChange('requests')];
     const yaml = 'http:\n  - requests\n  - httpx\nsecurity:\n  - pyjwt\n  - cryptography';
     const result = applyFilters(yaml, changes);
-    expect(result['http']).toBe(true);
-    expect(result['security']).toBe(false);
+    expect(result.http).toBe(true);
+    expect(result.security).toBe(false);
   });
 
   it('returns empty object for empty filters string', () => {
@@ -50,16 +60,13 @@ describe('applyFilters', () => {
   });
 
   it('works with added and removed changes', () => {
-    const changes = [
-      makeChange('httpx', 'added'),
-      makeChange('urllib3', 'removed'),
-    ];
+    const changes = [makeChange('httpx', 'added'), makeChange('urllib3', 'removed')];
     const result = applyFilters('http:\n  - httpx\n  - requests', changes);
-    expect(result['http']).toBe(true);
+    expect(result.http).toBe(true);
   });
 
   it('returns false for all groups when there are no changes', () => {
     const result = applyFilters('auth:\n  - pyjwt', []);
-    expect(result['auth']).toBe(false);
+    expect(result.auth).toBe(false);
   });
 });
