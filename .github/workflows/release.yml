@@ -68,7 +68,9 @@ jobs:
 
       # ── Update package.json + build ─────────────────────────────────────────
       - name: Bump package.json
-        run: pnpm version ${{ steps.version.outputs.new_version }} --no-git-tag-version
+        run: |
+          pnpm version ${{ steps.version.outputs.new_version }} --no-git-tag-version
+          pnpm biome format --write package.json
 
       - name: Build
         run: pnpm run build
