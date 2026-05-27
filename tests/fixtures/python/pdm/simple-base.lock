@@ -1,0 +1,26 @@
+[metadata]
+groups = ["default"]
+strategy = ["cross_platform"]
+lock_version = "4.5.0"
+requires_python = "==3.12.*"
+content_hash = "sha256:aaabbbccc"
+
+[[package]]
+name = "fastapi"
+version = "0.110.0"
+summary = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
+
+[[package]]
+name = "pydantic"
+version = "2.6.4"
+summary = "Data validation using Python type hints"
+
+[[package]]
+name = "starlette"
+version = "0.36.3"
+summary = "The little ASGI library that shines."
+
+[[package]]
+name = "uvicorn"
+version = "0.29.0"
+summary = "The lightning-fast ASGI server."

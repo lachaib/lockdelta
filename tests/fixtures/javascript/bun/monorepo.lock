@@ -1,0 +1,30 @@
+{
+  "lockfileVersion": 0,
+  "workspaces": {
+    "": {
+      "name": "mymonorepo"
+    },
+    "packages/core": {
+      "name": "@myorg/core",
+      "dependencies": {
+        "lodash": "^4.17.21"
+      }
+    },
+    "packages/ui": {
+      "name": "@myorg/ui",
+      "dependencies": {
+        "react": "^18.3.0"
+      }
+    }
+  },
+  "packages": {
+    "@myorg/core": ["@myorg/core@workspace:packages/core", {}, {
+      "lodash": "^4.17.21"
+    }, ""],
+    "@myorg/ui": ["@myorg/ui@workspace:packages/ui", {}, {
+      "react": "^18.3.0"
+    }, ""],
+    "lodash": ["lodash@4.17.21", {}, {}, "sha512-abc"],
+    "react": ["react@18.3.1", {}, {}, "sha512-def"]
+  }
+}

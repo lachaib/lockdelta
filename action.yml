@@ -1,0 +1,90 @@
+name: 'lockdelta'
+description: 'Diff dependency lockfiles between git refs or PRs and emit a structured JSON report'
+author: 'lachaib'
+
+branding:
+  icon: 'git-pull-request'
+  color: 'blue'
+
+inputs:
+  base-ref:
+    description: >
+      Base git ref (branch, tag, or SHA). Auto-detected from GITHUB_BASE_REF in CI.
+      In git mode (no pr-number), defaults to HEAD~1.
+    required: false
+  head-ref:
+    description: >
+      Head git ref. Auto-detected from GITHUB_HEAD_REF in CI.
+      In git mode, defaults to HEAD.
+    required: false
+  pr-number:
+    description: >
+      GitHub PR number. Uses the PR's exact base and head commit SHAs via the gh CLI,
+      which avoids branch timing issues. Set to ${{ github.event.pull_request.number }}.
+    required: false
+  repo:
+    description: >
+      GitHub repository in OWNER/NAME format.
+      Auto-detected from GITHUB_REPOSITORY if omitted.
+    required: false
+  lockfile:
+    description: >
+      Specific lockfile path to compare. When omitted, all lockfiles in the
+      repository are auto-discovered (monorepo-aware).
+    required: false
+  type:
+    description: >
+      Force lockfile type: uv, poetry, pdm. Only used together with the lockfile input.
+    required: false
+  filters:
+    description: >
+      YAML map of named package groups. Each group produces a boolean output named after
+      the group, set to 'true' if any package in the group changed. Inspired by
+      dorny/paths-filter. Example:
+        auth:
+          - pyjwt
+          - cryptography
+        http-client:
+          - httpx
+          - requests
+    required: false
+  markdown:
+    description: >
+      Set to 'true' to generate a markdown summary of changes. The summary has three
+      sections (Added, Changed, Removed). Direct prod dependencies are **bold**,
+      dev dependencies are *italic*, transitive deps are plain.
+    required: false
+    default: 'false'
+  json-to-file:
+    description: >
+      File path to write the JSON diff report to. When set, the full report is also
+      written to this path in addition to being emitted as the `diff` output.
+    required: false
+  markdown-to-file:
+    description: >
+      File path to write the markdown summary to. Requires markdown: 'true'.
+    required: false
+  post-comment:
+    description: >
+      Controls PR comment posting. 'true' always posts or updates a comment.
+      'if-changed' posts only when at least one dependency changed (silent skip
+      when nothing changed). 'false' never posts. Uses the GitHub REST API;
+      updates an existing lockdelta comment on re-runs. PR number is auto-detected
+      from the event payload on pull_request events. The markdown summary is
+      generated even if markdown: 'false'.
+    required: false
+    default: 'false'
+
+outputs:
+  diff:
+    description: >
+      JSON diff report. Schema matches DiffReport in the TypeScript types.
+      Contains schema_version, generated_at, base_ref, head_ref, summary, and lockfiles[].
+  markdown:
+    description: >
+      Markdown summary of dependency changes (Added/Changed/Removed sections).
+      Only set when the markdown input is 'true'.
+
+runs:
+  using: 'node24'
+  main: 'dist/action.js'

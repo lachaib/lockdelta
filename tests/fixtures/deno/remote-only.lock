@@ -1,0 +1,7 @@
+{
+  "version": "3",
+  "remote": {
+    "https://deno.land/std@0.224.0/path/mod.ts": "sha256-abc",
+    "https://deno.land/x/oak@v16.1.0/mod.ts": "sha256-def"
+  }
+}

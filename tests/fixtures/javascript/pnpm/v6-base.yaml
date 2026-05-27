@@ -1,0 +1,39 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+
+dependencies:
+  express:
+    specifier: ^4.18.2
+    version: 4.18.2
+  lodash:
+    specifier: ^4.17.21
+    version: 4.17.21
+
+devDependencies:
+  typescript:
+    specifier: ^5.0.0
+    version: 5.2.2
+
+packages:
+  /express@4.18.2:
+    resolution: {integrity: sha512-abc}
+    engines: {node: '>= 0.10.0'}
+    hasBin: true
+    dev: false
+
+  /lodash@4.17.21:
+    resolution: {integrity: sha512-def}
+    dev: false
+
+  /typescript@5.2.2:
+    resolution: {integrity: sha512-ghi}
+    engines: {node: '>=14.17'}
+    hasBin: true
+    dev: true
+
+  /@babel/core@7.24.0:
+    resolution: {integrity: sha512-jkl}
+    engines: {node: '>=6.9.0'}
+    dev: true

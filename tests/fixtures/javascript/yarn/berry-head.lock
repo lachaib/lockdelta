@@ -1,0 +1,44 @@
+__metadata:
+  version: 8
+  cacheKey: 10c0
+
+"axios@npm:^1.7.0":
+  version: 1.7.2
+  resolution: "axios@npm:1.7.2"
+  checksum: 10c0/newaxios
+  languageName: node
+  linkType: hard
+
+"express@npm:^4.18.2":
+  version: 4.19.2
+  resolution: "express@npm:4.19.2"
+  checksum: 10c0/updatedexpress
+  languageName: node
+  linkType: hard
+
+"lodash@npm:^4.17.21":
+  version: 4.17.21
+  resolution: "lodash@npm:4.17.21"
+  checksum: 10c0/cccddd
+  languageName: node
+  linkType: hard
+
+"@babel/core@npm:^7.24.0":
+  version: 7.24.5
+  resolution: "@babel/core@npm:7.24.5"
+  checksum: 10c0/newbabel
+  languageName: node
+  linkType: hard
+
+"typescript@npm:^5.4.0":
+  version: 5.4.5
+  resolution: "typescript@npm:5.4.5"
+  checksum: 10c0/ggghhh
+  languageName: node
+  linkType: hard
+
+"myapp@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "myapp@workspace:."
+  languageName: unknown
+  linkType: soft

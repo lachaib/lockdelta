@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+set -e
+
+# Fail fast on lint errors — run lint:fix locally to resolve
+pnpm run lint
+
+# Rebuild compiled output and stage it so dist/ stays in sync with src/
+pnpm run build
+git add dist/
