@@ -13,8 +13,19 @@ jobs:
       id-token: write
 
     steps:
+      - name: Extract version from release tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          MAJOR_NUM=$(echo "$VERSION" | cut -d. -f1)
+          echo "tag=$TAG"                >> "$GITHUB_OUTPUT"
+          echo "new_version=$VERSION"    >> "$GITHUB_OUTPUT"
+          echo "major_tag=v${MAJOR_NUM}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
+          ref: refs/heads/main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -27,44 +38,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile
-
-      # ── Compute version bump ────────────────────────────────────────────────
-      # MAJOR : feat(action)!: or fix(action)!: etc.  (action-breaking)
-      # MINOR : any other !: commit                    (lib/CLI-breaking)
-      # PATCH : everything else
-      - name: Compute next version
-        id: version
-        run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
-
-          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT" | cut -d. -f3)
-
-          LAST_TAG=$(git tag --list 'v*.*.*' --sort=-version:refname | head -1)
-          RANGE="${LAST_TAG:+${LAST_TAG}..}HEAD"
-
-          BUMP=patch
-          while IFS= read -r subject; do
-            if echo "$subject" | grep -qE '^[a-z]+\(.*action.*\)!:'; then
-              BUMP=major; break
-            fi
-            if echo "$subject" | grep -qE '^[a-z]+(\([^)]*\))?!:'; then
-              [ "$BUMP" != "major" ] && BUMP=minor
-            fi
-          done < <(git log "$RANGE" --format='%s')
-
-          case "$BUMP" in
-            major) NEW="$((MAJOR + 1)).0.0"; MAJOR_TAG="v$((MAJOR + 1))" ;;
-            minor) NEW="${MAJOR}.$((MINOR + 1)).0"; MAJOR_TAG="v${MAJOR}" ;;
-            patch) NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"; MAJOR_TAG="v${MAJOR}" ;;
-          esac
-
-          echo "bump=$BUMP"              >> "$GITHUB_OUTPUT"
-          echo "new_version=$NEW"        >> "$GITHUB_OUTPUT"
-          echo "tag=v${NEW}"             >> "$GITHUB_OUTPUT"
-          echo "major_tag=${MAJOR_TAG}"  >> "$GITHUB_OUTPUT"
 
       # ── Update package.json + build ─────────────────────────────────────────
       - name: Bump package.json
@@ -82,17 +55,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json && git add -f dist/action.js dist/action.js.map
           git commit -m "chore(release): ${{ steps.version.outputs.tag }}"
-          git push origin HEAD:main
+          git push origin main
 
-      # ── Tag the release commit ──────────────────────────────────────────────
-      - name: Create version tag
-        run: |
-          git tag ${{ steps.version.outputs.tag }}
-          git push origin ${{ steps.version.outputs.tag }}
-
+      # ── Update floating major tag ────────────────────────────────────────────
+      # Point the major tag (e.g. v0) at the same commit GitHub tagged for the release.
       - name: Update floating major tag
         run: |
-          git tag ${{ steps.version.outputs.major_tag }} --force
+          git tag ${{ steps.version.outputs.major_tag }} -f ${{ steps.version.outputs.tag }}
           git push origin ${{ steps.version.outputs.major_tag }} --force
 
       # ── Publish to npm ──────────────────────────────────────────────────────
