@@ -7360,11 +7360,511 @@ var require_dist = __commonJS({
 // src/action.ts
 import { appendFileSync, readFileSync as readFileSync2, writeFileSync } from "fs";
 
+// src/action/comment.ts
+var API_BASE = "https://api.github.com";
+var MARKER = "<!-- lockdelta -->";
+function githubHeaders(token2) {
+  return {
+    Authorization: `Bearer ${token2}`,
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+}
+async function findExistingComment(prNumber, repo, token2) {
+  const url = `${API_BASE}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
+  const response = await fetch(url, { headers: githubHeaders(token2) });
+  if (!response.ok) return null;
+  const comments = await response.json();
+  const found = comments.find((c) => c.body.includes(MARKER));
+  return found ? { id: found.id, nodeId: found.node_id } : null;
+}
+async function postPrComment(markdown, prNumber, repo) {
+  if (!prNumber) throw new Error("post-comment requires a PR number");
+  if (!repo) throw new Error("post-comment requires repo to be set");
+  const t = process.env.GITHUB_TOKEN;
+  if (!t) throw new Error("GITHUB_TOKEN is required for post-comment");
+  const body = `${MARKER}
+
+${markdown}`;
+  const hdrs = githubHeaders(t);
+  const existing = await findExistingComment(prNumber, repo, t);
+  if (existing !== null) {
+    await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
+      method: "PATCH",
+      headers: hdrs,
+      body: JSON.stringify({ body })
+    });
+  } else {
+    await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
+      method: "POST",
+      headers: hdrs,
+      body: JSON.stringify({ body })
+    });
+  }
+}
+async function hidePrComment(prNumber, repo) {
+  if (!prNumber || !repo) return;
+  const t = process.env.GITHUB_TOKEN;
+  if (!t) return;
+  const existing = await findExistingComment(prNumber, repo, t);
+  if (!existing) return;
+  await fetch(`${API_BASE}/graphql`, {
+    method: "POST",
+    headers: githubHeaders(t),
+    body: JSON.stringify({
+      query: `mutation MinimizeComment($id: ID!) {
+        minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
+          minimizedComment { isMinimized }
+        }
+      }`,
+      variables: { id: existing.nodeId }
+    })
+  });
+}
+
+// src/action/filters.ts
+var import_yaml = __toESM(require_dist(), 1);
+function applyFilters(filtersYaml, changes) {
+  if (!filtersYaml.trim()) return {};
+  let config;
+  try {
+    config = (0, import_yaml.parse)(filtersYaml);
+  } catch {
+    return {};
+  }
+  if (!config || typeof config !== "object") return {};
+  const changedNames = new Set(changes.map((c) => c.name.toLowerCase()));
+  const result = {};
+  for (const [groupName, packages] of Object.entries(config)) {
+    if (!Array.isArray(packages)) continue;
+    result[groupName] = packages.some(
+      (pkg) => typeof pkg === "string" && changedNames.has(pkg.toLowerCase())
+    );
+  }
+  return result;
+}
+
+// src/action/markdown.ts
+function packageUrl(ecosystem, name) {
+  switch (ecosystem) {
+    case "python":
+      return `https://pypi.org/project/${name}/`;
+    case "javascript":
+      return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
+    case "deno":
+      if (name.startsWith("jsr:")) return `https://jsr.io/${name.slice(4)}`;
+      return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
+    default:
+      return null;
+  }
+}
+function formatName(change, ecosystem) {
+  const url = packageUrl(ecosystem, change.name);
+  const linked = url ? `[${change.name}](${url})` : change.name;
+  if (change.is_direct && !change.is_dev) return `**${linked}**`;
+  if (change.is_dev) return `*${linked}*`;
+  return linked;
+}
+function formatLine(change, ecosystem) {
+  const name = formatName(change, ecosystem);
+  if (change.change_type === "updated") {
+    return `- ${name}: \`${change.old_version}\` \u2192 \`${change.new_version}\``;
+  }
+  if (change.change_type === "added") {
+    return `- ${name}: \`${change.new_version}\``;
+  }
+  return `- ${name}: \`${change.old_version}\``;
+}
+function generateMarkdown(report) {
+  const added = [];
+  const updated = [];
+  const removed = [];
+  for (const lf of report.lockfiles) {
+    for (const change of lf.changes) {
+      const entry = { change, ecosystem: lf.ecosystem };
+      if (change.change_type === "added") added.push(entry);
+      else if (change.change_type === "updated") updated.push(entry);
+      else removed.push(entry);
+    }
+  }
+  const fmt = ({ change, ecosystem }) => formatLine(change, ecosystem);
+  const sections = [];
+  if (added.length > 0) sections.push(`### Added
+
+${added.map(fmt).join("\n")}`);
+  if (updated.length > 0) sections.push(`### Changed
+
+${updated.map(fmt).join("\n")}`);
+  if (removed.length > 0) sections.push(`### Removed
+
+${removed.map(fmt).join("\n")}`);
+  return sections.join("\n\n");
+}
+
 // src/index.ts
 import { readFileSync } from "fs";
 
 // src/core/report.ts
 import { posix as posix2 } from "path";
+
+// src/ecosystems/deno/deno-json.ts
+function normalizeDenoName(name) {
+  return name.toLowerCase();
+}
+function parseDirectDeps(content) {
+  const prod = /* @__PURE__ */ new Set();
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    return { prod, dev: /* @__PURE__ */ new Set() };
+  }
+  const imports = data.imports;
+  if (imports) {
+    for (const specifier of Object.values(imports)) {
+      const name = extractPackageName(specifier);
+      if (name) prod.add(normalizeDenoName(name));
+    }
+  }
+  const workspace = data.workspace;
+  for (const specifier of workspace?.dependencies ?? []) {
+    const name = extractPackageName(specifier);
+    if (name) prod.add(normalizeDenoName(name));
+  }
+  return { prod, dev: /* @__PURE__ */ new Set() };
+}
+function extractPackageName(specifier) {
+  const withoutProtocol = specifier.replace(/^(?:npm|jsr|node):/, "");
+  if (specifier.startsWith("node:")) return null;
+  if (withoutProtocol.startsWith("@")) {
+    const atIdx2 = withoutProtocol.indexOf("@", 1);
+    return atIdx2 > 0 ? withoutProtocol.slice(0, atIdx2) : withoutProtocol;
+  }
+  const atIdx = withoutProtocol.indexOf("@");
+  return atIdx > 0 ? withoutProtocol.slice(0, atIdx) : withoutProtocol || null;
+}
+
+// src/ecosystems/deno/parsers/deno-lock.ts
+function parseDenoLock(content) {
+  const data = JSON.parse(content);
+  const result = {};
+  for (const [key, registry2] of [
+    ["npm", data.packages?.npm],
+    ["jsr", data.packages?.jsr]
+  ]) {
+    if (!registry2) continue;
+    for (const specifier of Object.keys(registry2)) {
+      const { name, version } = splitSpecifier(specifier);
+      const resultKey = key === "jsr" ? `jsr:${name}` : name;
+      if (name && version && !result[resultKey]) {
+        result[resultKey] = version;
+      }
+    }
+  }
+  return result;
+}
+function splitSpecifier(specifier) {
+  if (specifier.startsWith("@")) {
+    const atIdx2 = specifier.indexOf("@", 1);
+    if (atIdx2 < 0) return { name: specifier, version: "" };
+    return { name: specifier.slice(0, atIdx2), version: specifier.slice(atIdx2 + 1) };
+  }
+  const atIdx = specifier.indexOf("@");
+  if (atIdx < 0) return { name: specifier, version: "" };
+  return { name: specifier.slice(0, atIdx), version: specifier.slice(atIdx + 1) };
+}
+
+// src/ecosystems/deno/index.ts
+var SUPPORTED_LOCKFILES = [{ filename: "deno.lock", type: "deno" }];
+var denoEcosystem = {
+  name: "deno",
+  supportedLockfiles: SUPPORTED_LOCKFILES,
+  manifestName: "deno.json",
+  getLockfileType(filename) {
+    return filename === "deno.lock" ? "deno" : void 0;
+  },
+  parseLockfile(content, _lockfileType) {
+    return parseDenoLock(content);
+  },
+  parseDirectDeps(manifestContent) {
+    return parseDirectDeps(manifestContent);
+  },
+  normalizeName(name) {
+    return normalizeDenoName(name);
+  }
+};
+
+// src/ecosystems/javascript/package-json.ts
+var PROD_SECTIONS = ["dependencies", "optionalDependencies", "peerDependencies"];
+function normalizeJsName(name) {
+  return name.toLowerCase();
+}
+function parseDirectDeps2(content) {
+  const prod = /* @__PURE__ */ new Set();
+  const dev = /* @__PURE__ */ new Set();
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    return { prod, dev };
+  }
+  for (const section of PROD_SECTIONS) {
+    const deps = data[section];
+    if (deps && typeof deps === "object") {
+      for (const name of Object.keys(deps)) {
+        prod.add(normalizeJsName(name));
+      }
+    }
+  }
+  const devDeps = data.devDependencies;
+  if (devDeps && typeof devDeps === "object") {
+    for (const name of Object.keys(devDeps)) {
+      const normalized = normalizeJsName(name);
+      if (!prod.has(normalized)) dev.add(normalized);
+    }
+  }
+  return { prod, dev };
+}
+
+// src/ecosystems/javascript/parsers/bun.ts
+function parseBunLock(content) {
+  const data = JSON.parse(content);
+  const result = {};
+  for (const [name, entry] of Object.entries(data.packages ?? {})) {
+    if (!Array.isArray(entry)) continue;
+    const nameAtVersion = entry[0];
+    if (typeof nameAtVersion !== "string") continue;
+    const version = extractVersion(nameAtVersion);
+    if (!version || version.startsWith("workspace:")) continue;
+    result[name] = version;
+  }
+  return result;
+}
+function extractVersion(nameAtVersion) {
+  if (nameAtVersion.startsWith("@")) {
+    const atIdx2 = nameAtVersion.indexOf("@", 1);
+    return atIdx2 > 0 ? nameAtVersion.slice(atIdx2 + 1) : "";
+  }
+  const atIdx = nameAtVersion.indexOf("@");
+  return atIdx > 0 ? nameAtVersion.slice(atIdx + 1) : "";
+}
+
+// src/ecosystems/javascript/parsers/npm.ts
+function parseNpmLock(content) {
+  const data = JSON.parse(content);
+  const version = data.lockfileVersion ?? 1;
+  if (version >= 2 && data.packages) {
+    return parseV2Packages(data.packages);
+  }
+  if (data.dependencies) {
+    return parseV1Dependencies(data.dependencies);
+  }
+  return {};
+}
+function parseV2Packages(packages) {
+  const result = {};
+  for (const [key, pkg] of Object.entries(packages)) {
+    if (!key) continue;
+    if (!key.startsWith("node_modules/")) continue;
+    const segments = key.split("node_modules/");
+    if (segments.length > 2) continue;
+    const name = key.slice("node_modules/".length);
+    const pkgVersion = pkg.version;
+    if (pkgVersion && !result[name]) {
+      result[name] = pkgVersion;
+    }
+  }
+  return result;
+}
+function parseV1Dependencies(deps, result = {}) {
+  for (const [name, pkg] of Object.entries(deps)) {
+    if (pkg.version && !result[name]) {
+      result[name] = pkg.version;
+    }
+    if (pkg.dependencies) {
+      parseV1Dependencies(pkg.dependencies, result);
+    }
+  }
+  return result;
+}
+
+// src/ecosystems/javascript/parsers/pnpm.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+function parsePnpmLock(content) {
+  const data = (0, import_yaml2.parse)(content);
+  if (!data?.packages) return {};
+  const lockfileVersion = parseLockfileVersion(data.lockfileVersion);
+  if (lockfileVersion >= 9) {
+    return parsePnpmV9(data.packages);
+  }
+  return parsePnpmLegacy(data.packages);
+}
+function parseLockfileVersion(v) {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") return Number.parseFloat(v);
+  return 0;
+}
+function parsePnpmV9(packages) {
+  const result = {};
+  for (const key of Object.keys(packages)) {
+    let name;
+    let version;
+    if (key.startsWith("@")) {
+      const atIdx = key.indexOf("@", 1);
+      if (atIdx < 0) continue;
+      name = key.slice(0, atIdx);
+      version = key.slice(atIdx + 1);
+    } else {
+      const atIdx = key.indexOf("@");
+      if (atIdx < 0) continue;
+      name = key.slice(0, atIdx);
+      version = key.slice(atIdx + 1);
+    }
+    version = stripVersionSuffix(version);
+    if (name && version && !result[name]) {
+      result[name] = version;
+    }
+  }
+  return result;
+}
+function parsePnpmLegacy(packages) {
+  const result = {};
+  for (const key of Object.keys(packages)) {
+    const cleaned = key.startsWith("/") ? key.slice(1) : key;
+    let name;
+    let version;
+    if (cleaned.startsWith("@")) {
+      const secondSlash = cleaned.indexOf("/", cleaned.indexOf("/") + 1);
+      const secondAt = cleaned.indexOf("@", 1);
+      if (secondAt > 0 && (secondSlash < 0 || secondAt < secondSlash)) {
+        name = cleaned.slice(0, secondAt);
+        version = cleaned.slice(secondAt + 1);
+      } else if (secondSlash > 0) {
+        name = cleaned.slice(0, secondSlash);
+        version = cleaned.slice(secondSlash + 1);
+      } else {
+        continue;
+      }
+    } else {
+      const atIdx = cleaned.indexOf("@");
+      const slashIdx = cleaned.indexOf("/");
+      if (atIdx > 0 && (slashIdx < 0 || atIdx < slashIdx)) {
+        name = cleaned.slice(0, atIdx);
+        version = cleaned.slice(atIdx + 1);
+      } else if (slashIdx > 0) {
+        name = cleaned.slice(0, slashIdx);
+        version = cleaned.slice(slashIdx + 1);
+      } else {
+        continue;
+      }
+    }
+    version = stripVersionSuffix(version);
+    if (name && version && !result[name]) {
+      result[name] = version;
+    }
+  }
+  return result;
+}
+function stripVersionSuffix(version) {
+  return version.split("(")[0].split("_")[0].trim();
+}
+
+// src/ecosystems/javascript/parsers/yarn.ts
+var import_yaml3 = __toESM(require_dist(), 1);
+function parseYarnLock(content) {
+  return isYarnBerry(content) ? parseYarnBerry(content) : parseYarnV1(content);
+}
+function isYarnBerry(content) {
+  return content.includes("__metadata:");
+}
+function extractNameFromSpecifier(spec) {
+  const trimmed = spec.trim().replace(/^"|"$/g, "");
+  if (trimmed.startsWith("@")) {
+    const idx = trimmed.indexOf("@", 1);
+    return idx > 0 ? trimmed.slice(0, idx) : trimmed;
+  }
+  const atIdx = trimmed.indexOf("@");
+  return atIdx > 0 ? trimmed.slice(0, atIdx) : trimmed;
+}
+function parseYarnV1(content) {
+  const packages = {};
+  const blocks = content.split(/\n\n+/);
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const versionMatch = trimmed.match(/^[ \t]+version "([^"]+)"/m);
+    if (!versionMatch) continue;
+    const headerLine = trimmed.split("\n")[0].trim().replace(/:$/, "");
+    const firstSpecifier = headerLine.split(",")[0].trim().replace(/^"|"$/g, "");
+    const name = extractNameFromSpecifier(firstSpecifier);
+    if (name && !packages[name]) {
+      packages[name] = versionMatch[1];
+    }
+  }
+  return packages;
+}
+function parseYarnBerry(content) {
+  const data = (0, import_yaml3.parse)(content);
+  const packages = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key === "__metadata") continue;
+    if (typeof value !== "object" || !value) continue;
+    const entry = value;
+    if (entry.linkType === "soft") continue;
+    if (!entry.version) continue;
+    const cleanKey = key.replace(/^"|"$/g, "");
+    const name = extractNameFromBerryKey(cleanKey);
+    if (name && !packages[name]) {
+      packages[name] = entry.version;
+    }
+  }
+  return packages;
+}
+function extractNameFromBerryKey(key) {
+  if (key.startsWith("@")) {
+    const idx = key.indexOf("@", 1);
+    return idx > 0 ? key.slice(0, idx) : key;
+  }
+  return key.split("@")[0];
+}
+
+// src/ecosystems/javascript/index.ts
+var SUPPORTED_LOCKFILES2 = [
+  { filename: "package-lock.json", type: "npm" },
+  { filename: "yarn.lock", type: "yarn" },
+  { filename: "pnpm-lock.yaml", type: "pnpm" },
+  { filename: "bun.lock", type: "bun" }
+];
+var lockfileTypeMap = new Map(SUPPORTED_LOCKFILES2.map((l) => [l.filename, l.type]));
+var javascriptEcosystem = {
+  name: "javascript",
+  supportedLockfiles: SUPPORTED_LOCKFILES2,
+  manifestName: "package.json",
+  getLockfileType(filename) {
+    return lockfileTypeMap.get(filename);
+  },
+  parseLockfile(content, lockfileType) {
+    switch (lockfileType) {
+      case "npm":
+        return parseNpmLock(content);
+      case "yarn":
+        return parseYarnLock(content);
+      case "pnpm":
+        return parsePnpmLock(content);
+      case "bun":
+        return parseBunLock(content);
+      default:
+        return {};
+    }
+  },
+  parseDirectDeps(manifestContent) {
+    return parseDirectDeps2(manifestContent);
+  },
+  normalizeName(name) {
+    return normalizeJsName(name);
+  }
+};
 
 // node_modules/.pnpm/smol-toml@1.6.1/node_modules/smol-toml/dist/error.js
 function getLineColFromPtr(string, ptr) {
@@ -7991,7 +8491,7 @@ function peekTable(key, table, meta, type) {
   }
   return [k, t, state.c];
 }
-function parse(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
+function parse2(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
   let res = {};
   let meta = {};
   let tbl = res;
@@ -8059,7 +8559,7 @@ function parse(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
 // src/ecosystems/python/parsers/toml.ts
 function parseTomlPackages(content) {
   try {
-    const data = parse(content);
+    const data = parse2(content);
     const packages = {};
     for (const pkg of [...data.package ?? [], ...data.packages ?? []]) {
       if (typeof pkg.name === "string" && typeof pkg.version === "string") {
@@ -8092,17 +8592,17 @@ function extractPkgName(dep) {
   const match = String(dep).match(/^([\w][\w.-]*)/);
   return match ? normalizePythonName(match[1]) : null;
 }
-function parseDirectDeps(content) {
+function parseDirectDeps3(content) {
   const prod = /* @__PURE__ */ new Set();
   const dev = /* @__PURE__ */ new Set();
   let data;
   try {
-    data = parse(content);
+    data = parse2(content);
   } catch {
     return { prod, dev };
   }
-  const project = data["project"];
-  const pep517Deps = project?.["dependencies"];
+  const project = data.project;
+  const pep517Deps = project?.dependencies;
   if (Array.isArray(pep517Deps)) {
     for (const dep of pep517Deps) {
       const name = extractPkgName(dep);
@@ -8120,10 +8620,10 @@ function parseDirectDeps(content) {
       }
     }
   }
-  const tool = data["tool"];
-  const poetry = tool?.["poetry"];
+  const tool = data.tool;
+  const poetry = tool?.poetry;
   if (poetry) {
-    const poetryDeps = poetry["dependencies"];
+    const poetryDeps = poetry.dependencies;
     if (poetryDeps) {
       for (const key of Object.keys(poetryDeps)) {
         if (key.toLowerCase() !== "python") prod.add(normalizePythonName(key));
@@ -8136,10 +8636,10 @@ function parseDirectDeps(content) {
         if (!prod.has(normalized)) dev.add(normalized);
       }
     }
-    const groups = poetry["group"];
+    const groups = poetry.group;
     if (groups) {
       for (const group of Object.values(groups)) {
-        const groupDeps = group["dependencies"];
+        const groupDeps = group.dependencies;
         if (groupDeps) {
           for (const key of Object.keys(groupDeps)) {
             const normalized = normalizePythonName(key);
@@ -8149,7 +8649,7 @@ function parseDirectDeps(content) {
       }
     }
   }
-  const uv = tool?.["uv"];
+  const uv = tool?.uv;
   const uvDevDeps = uv?.["dev-dependencies"];
   if (Array.isArray(uvDevDeps)) {
     for (const dep of uvDevDeps) {
@@ -8174,385 +8674,29 @@ function parseDirectDeps(content) {
 }
 
 // src/ecosystems/python/index.ts
-var SUPPORTED_LOCKFILES = [
+var SUPPORTED_LOCKFILES3 = [
   { filename: "uv.lock", type: "uv" },
   { filename: "poetry.lock", type: "poetry" },
   { filename: "pdm.lock", type: "pdm" },
   { filename: "pylock.toml", type: "pylock" }
   // PEP 751
 ];
-var lockfileTypeMap = new Map(SUPPORTED_LOCKFILES.map((l) => [l.filename, l.type]));
+var lockfileTypeMap2 = new Map(SUPPORTED_LOCKFILES3.map((l) => [l.filename, l.type]));
 var pythonEcosystem = {
   name: "python",
-  supportedLockfiles: SUPPORTED_LOCKFILES,
+  supportedLockfiles: SUPPORTED_LOCKFILES3,
   manifestName: "pyproject.toml",
   getLockfileType(filename) {
-    return lockfileTypeMap.get(filename);
+    return lockfileTypeMap2.get(filename);
   },
   parseLockfile(content, _lockfileType) {
     return parseTomlPackages(content);
   },
   parseDirectDeps(manifestContent) {
-    return parseDirectDeps(manifestContent);
-  },
-  normalizeName(name) {
-    return normalizePythonName(name);
-  }
-};
-
-// src/ecosystems/javascript/parsers/npm.ts
-function parseNpmLock(content) {
-  const data = JSON.parse(content);
-  const version = data.lockfileVersion ?? 1;
-  if (version >= 2 && data.packages) {
-    return parseV2Packages(data.packages);
-  }
-  if (data.dependencies) {
-    return parseV1Dependencies(data.dependencies);
-  }
-  return {};
-}
-function parseV2Packages(packages) {
-  const result = {};
-  for (const [key, pkg] of Object.entries(packages)) {
-    if (!key) continue;
-    if (!key.startsWith("node_modules/")) continue;
-    const segments = key.split("node_modules/");
-    if (segments.length > 2) continue;
-    const name = key.slice("node_modules/".length);
-    const pkgVersion = pkg.version;
-    if (pkgVersion && !result[name]) {
-      result[name] = pkgVersion;
-    }
-  }
-  return result;
-}
-function parseV1Dependencies(deps, result = {}) {
-  for (const [name, pkg] of Object.entries(deps)) {
-    if (pkg.version && !result[name]) {
-      result[name] = pkg.version;
-    }
-    if (pkg.dependencies) {
-      parseV1Dependencies(pkg.dependencies, result);
-    }
-  }
-  return result;
-}
-
-// src/ecosystems/javascript/parsers/yarn.ts
-var import_yaml = __toESM(require_dist(), 1);
-function parseYarnLock(content) {
-  return isYarnBerry(content) ? parseYarnBerry(content) : parseYarnV1(content);
-}
-function isYarnBerry(content) {
-  return content.includes("__metadata:");
-}
-function extractNameFromSpecifier(spec) {
-  const trimmed = spec.trim().replace(/^"|"$/g, "");
-  if (trimmed.startsWith("@")) {
-    const idx = trimmed.indexOf("@", 1);
-    return idx > 0 ? trimmed.slice(0, idx) : trimmed;
-  }
-  const atIdx = trimmed.indexOf("@");
-  return atIdx > 0 ? trimmed.slice(0, atIdx) : trimmed;
-}
-function parseYarnV1(content) {
-  const packages = {};
-  const blocks = content.split(/\n\n+/);
-  for (const block of blocks) {
-    const trimmed = block.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const versionMatch = trimmed.match(/^[ \t]+version "([^"]+)"/m);
-    if (!versionMatch) continue;
-    const headerLine = trimmed.split("\n")[0].trim().replace(/:$/, "");
-    const firstSpecifier = headerLine.split(",")[0].trim().replace(/^"|"$/g, "");
-    const name = extractNameFromSpecifier(firstSpecifier);
-    if (name && !packages[name]) {
-      packages[name] = versionMatch[1];
-    }
-  }
-  return packages;
-}
-function parseYarnBerry(content) {
-  const data = (0, import_yaml.parse)(content);
-  const packages = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (key === "__metadata") continue;
-    if (typeof value !== "object" || !value) continue;
-    const entry = value;
-    if (entry.linkType === "soft") continue;
-    if (!entry.version) continue;
-    const cleanKey = key.replace(/^"|"$/g, "");
-    const name = extractNameFromBerryKey(cleanKey);
-    if (name && !packages[name]) {
-      packages[name] = entry.version;
-    }
-  }
-  return packages;
-}
-function extractNameFromBerryKey(key) {
-  if (key.startsWith("@")) {
-    const idx = key.indexOf("@", 1);
-    return idx > 0 ? key.slice(0, idx) : key;
-  }
-  return key.split("@")[0];
-}
-
-// src/ecosystems/javascript/parsers/pnpm.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-function parsePnpmLock(content) {
-  const data = (0, import_yaml2.parse)(content);
-  if (!data?.packages) return {};
-  const lockfileVersion = parseLockfileVersion(data.lockfileVersion);
-  if (lockfileVersion >= 9) {
-    return parsePnpmV9(data.packages);
-  }
-  return parsePnpmLegacy(data.packages);
-}
-function parseLockfileVersion(v) {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") return parseFloat(v);
-  return 0;
-}
-function parsePnpmV9(packages) {
-  const result = {};
-  for (const key of Object.keys(packages)) {
-    let name, version;
-    if (key.startsWith("@")) {
-      const atIdx = key.indexOf("@", 1);
-      if (atIdx < 0) continue;
-      name = key.slice(0, atIdx);
-      version = key.slice(atIdx + 1);
-    } else {
-      const atIdx = key.indexOf("@");
-      if (atIdx < 0) continue;
-      name = key.slice(0, atIdx);
-      version = key.slice(atIdx + 1);
-    }
-    version = stripVersionSuffix(version);
-    if (name && version && !result[name]) {
-      result[name] = version;
-    }
-  }
-  return result;
-}
-function parsePnpmLegacy(packages) {
-  const result = {};
-  for (const key of Object.keys(packages)) {
-    const cleaned = key.startsWith("/") ? key.slice(1) : key;
-    let name, version;
-    if (cleaned.startsWith("@")) {
-      const secondSlash = cleaned.indexOf("/", cleaned.indexOf("/") + 1);
-      const secondAt = cleaned.indexOf("@", 1);
-      if (secondAt > 0 && (secondSlash < 0 || secondAt < secondSlash)) {
-        name = cleaned.slice(0, secondAt);
-        version = cleaned.slice(secondAt + 1);
-      } else if (secondSlash > 0) {
-        name = cleaned.slice(0, secondSlash);
-        version = cleaned.slice(secondSlash + 1);
-      } else {
-        continue;
-      }
-    } else {
-      const atIdx = cleaned.indexOf("@");
-      const slashIdx = cleaned.indexOf("/");
-      if (atIdx > 0 && (slashIdx < 0 || atIdx < slashIdx)) {
-        name = cleaned.slice(0, atIdx);
-        version = cleaned.slice(atIdx + 1);
-      } else if (slashIdx > 0) {
-        name = cleaned.slice(0, slashIdx);
-        version = cleaned.slice(slashIdx + 1);
-      } else {
-        continue;
-      }
-    }
-    version = stripVersionSuffix(version);
-    if (name && version && !result[name]) {
-      result[name] = version;
-    }
-  }
-  return result;
-}
-function stripVersionSuffix(version) {
-  return version.split("(")[0].split("_")[0].trim();
-}
-
-// src/ecosystems/javascript/parsers/bun.ts
-function parseBunLock(content) {
-  const data = JSON.parse(content);
-  const result = {};
-  for (const [name, entry] of Object.entries(data.packages ?? {})) {
-    if (!Array.isArray(entry)) continue;
-    const nameAtVersion = entry[0];
-    if (typeof nameAtVersion !== "string") continue;
-    const version = extractVersion(nameAtVersion);
-    if (!version || version.startsWith("workspace:")) continue;
-    result[name] = version;
-  }
-  return result;
-}
-function extractVersion(nameAtVersion) {
-  if (nameAtVersion.startsWith("@")) {
-    const atIdx2 = nameAtVersion.indexOf("@", 1);
-    return atIdx2 > 0 ? nameAtVersion.slice(atIdx2 + 1) : "";
-  }
-  const atIdx = nameAtVersion.indexOf("@");
-  return atIdx > 0 ? nameAtVersion.slice(atIdx + 1) : "";
-}
-
-// src/ecosystems/javascript/package-json.ts
-var PROD_SECTIONS = ["dependencies", "optionalDependencies", "peerDependencies"];
-function normalizeJsName(name) {
-  return name.toLowerCase();
-}
-function parseDirectDeps2(content) {
-  const prod = /* @__PURE__ */ new Set();
-  const dev = /* @__PURE__ */ new Set();
-  let data;
-  try {
-    data = JSON.parse(content);
-  } catch {
-    return { prod, dev };
-  }
-  for (const section of PROD_SECTIONS) {
-    const deps = data[section];
-    if (deps && typeof deps === "object") {
-      for (const name of Object.keys(deps)) {
-        prod.add(normalizeJsName(name));
-      }
-    }
-  }
-  const devDeps = data["devDependencies"];
-  if (devDeps && typeof devDeps === "object") {
-    for (const name of Object.keys(devDeps)) {
-      const normalized = normalizeJsName(name);
-      if (!prod.has(normalized)) dev.add(normalized);
-    }
-  }
-  return { prod, dev };
-}
-
-// src/ecosystems/javascript/index.ts
-var SUPPORTED_LOCKFILES2 = [
-  { filename: "package-lock.json", type: "npm" },
-  { filename: "yarn.lock", type: "yarn" },
-  { filename: "pnpm-lock.yaml", type: "pnpm" },
-  { filename: "bun.lock", type: "bun" }
-];
-var lockfileTypeMap2 = new Map(SUPPORTED_LOCKFILES2.map((l) => [l.filename, l.type]));
-var javascriptEcosystem = {
-  name: "javascript",
-  supportedLockfiles: SUPPORTED_LOCKFILES2,
-  manifestName: "package.json",
-  getLockfileType(filename) {
-    return lockfileTypeMap2.get(filename);
-  },
-  parseLockfile(content, lockfileType) {
-    switch (lockfileType) {
-      case "npm":
-        return parseNpmLock(content);
-      case "yarn":
-        return parseYarnLock(content);
-      case "pnpm":
-        return parsePnpmLock(content);
-      case "bun":
-        return parseBunLock(content);
-      default:
-        return {};
-    }
-  },
-  parseDirectDeps(manifestContent) {
-    return parseDirectDeps2(manifestContent);
-  },
-  normalizeName(name) {
-    return normalizeJsName(name);
-  }
-};
-
-// src/ecosystems/deno/parsers/deno-lock.ts
-function parseDenoLock(content) {
-  const data = JSON.parse(content);
-  const result = {};
-  for (const [key, registry2] of [
-    ["npm", data.packages?.npm],
-    ["jsr", data.packages?.jsr]
-  ]) {
-    if (!registry2) continue;
-    for (const specifier of Object.keys(registry2)) {
-      const { name, version } = splitSpecifier(specifier);
-      const resultKey = key === "jsr" ? `jsr:${name}` : name;
-      if (name && version && !result[resultKey]) {
-        result[resultKey] = version;
-      }
-    }
-  }
-  return result;
-}
-function splitSpecifier(specifier) {
-  if (specifier.startsWith("@")) {
-    const atIdx2 = specifier.indexOf("@", 1);
-    if (atIdx2 < 0) return { name: specifier, version: "" };
-    return { name: specifier.slice(0, atIdx2), version: specifier.slice(atIdx2 + 1) };
-  }
-  const atIdx = specifier.indexOf("@");
-  if (atIdx < 0) return { name: specifier, version: "" };
-  return { name: specifier.slice(0, atIdx), version: specifier.slice(atIdx + 1) };
-}
-
-// src/ecosystems/deno/deno-json.ts
-function normalizeDenoName(name) {
-  return name.toLowerCase();
-}
-function parseDirectDeps3(content) {
-  const prod = /* @__PURE__ */ new Set();
-  let data;
-  try {
-    data = JSON.parse(content);
-  } catch {
-    return { prod, dev: /* @__PURE__ */ new Set() };
-  }
-  const imports = data["imports"];
-  if (imports) {
-    for (const specifier of Object.values(imports)) {
-      const name = extractPackageName(specifier);
-      if (name) prod.add(normalizeDenoName(name));
-    }
-  }
-  const workspace = data["workspace"];
-  for (const specifier of workspace?.dependencies ?? []) {
-    const name = extractPackageName(specifier);
-    if (name) prod.add(normalizeDenoName(name));
-  }
-  return { prod, dev: /* @__PURE__ */ new Set() };
-}
-function extractPackageName(specifier) {
-  const withoutProtocol = specifier.replace(/^(?:npm|jsr|node):/, "");
-  if (specifier.startsWith("node:")) return null;
-  if (withoutProtocol.startsWith("@")) {
-    const atIdx2 = withoutProtocol.indexOf("@", 1);
-    return atIdx2 > 0 ? withoutProtocol.slice(0, atIdx2) : withoutProtocol;
-  }
-  const atIdx = withoutProtocol.indexOf("@");
-  return atIdx > 0 ? withoutProtocol.slice(0, atIdx) : withoutProtocol || null;
-}
-
-// src/ecosystems/deno/index.ts
-var SUPPORTED_LOCKFILES3 = [{ filename: "deno.lock", type: "deno" }];
-var denoEcosystem = {
-  name: "deno",
-  supportedLockfiles: SUPPORTED_LOCKFILES3,
-  manifestName: "deno.json",
-  getLockfileType(filename) {
-    return filename === "deno.lock" ? "deno" : void 0;
-  },
-  parseLockfile(content, _lockfileType) {
-    return parseDenoLock(content);
-  },
-  parseDirectDeps(manifestContent) {
     return parseDirectDeps3(manifestContent);
   },
   normalizeName(name) {
-    return normalizeDenoName(name);
+    return normalizePythonName(name);
   }
 };
 
@@ -8576,6 +8720,29 @@ function getAllEcosystems() {
 registerEcosystem(pythonEcosystem);
 registerEcosystem(javascriptEcosystem);
 registerEcosystem(denoEcosystem);
+
+// src/core/diff.ts
+function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
+  const allNames = /* @__PURE__ */ new Set([...Object.keys(oldPkgs), ...Object.keys(newPkgs)]);
+  const changes = [];
+  for (const name of [...allNames].sort()) {
+    const inOld = name in oldPkgs;
+    const inNew = name in newPkgs;
+    if (inOld && inNew && oldPkgs[name] === newPkgs[name]) continue;
+    const normalized = normalizeName(name);
+    const isProd = directDeps.prod.has(normalized);
+    const isDev = directDeps.dev.has(normalized) && !isProd;
+    changes.push({
+      name,
+      change_type: !inOld ? "added" : !inNew ? "removed" : "updated",
+      old_version: inOld ? oldPkgs[name] : null,
+      new_version: inNew ? newPkgs[name] : null,
+      is_direct: isProd || isDev,
+      is_dev: isDev
+    });
+  }
+  return changes;
+}
 
 // src/core/discovery.ts
 import { posix } from "path";
@@ -8640,6 +8807,7 @@ function resolveLockfilePair(baseFiles, headFiles) {
       basePath: chosen.path,
       baseType: chosen.type,
       headPath: chosen.path,
+      // biome-ignore lint/style/noNonNullAssertion: path is guaranteed present (comes from common set)
       headType: headByPath.get(chosen.path).type,
       migrationNote: null,
       ecosystemName: chosen.ecosystemName
@@ -8680,29 +8848,6 @@ function resolveLockfilePair(baseFiles, headFiles) {
     };
   }
   return null;
-}
-
-// src/core/diff.ts
-function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
-  const allNames = /* @__PURE__ */ new Set([...Object.keys(oldPkgs), ...Object.keys(newPkgs)]);
-  const changes = [];
-  for (const name of [...allNames].sort()) {
-    const inOld = name in oldPkgs;
-    const inNew = name in newPkgs;
-    if (inOld && inNew && oldPkgs[name] === newPkgs[name]) continue;
-    const normalized = normalizeName(name);
-    const isProd = directDeps.prod.has(normalized);
-    const isDev = directDeps.dev.has(normalized) && !isProd;
-    changes.push({
-      name,
-      change_type: !inOld ? "added" : !inNew ? "removed" : "updated",
-      old_version: inOld ? oldPkgs[name] : null,
-      new_version: inNew ? newPkgs[name] : null,
-      is_direct: isProd || isDev,
-      is_dev: isDev
-    });
-  }
-  return changes;
 }
 
 // src/core/report.ts
@@ -8836,9 +8981,9 @@ function gitLsTree(ref) {
 
 // src/sources/github.ts
 import { execFileSync as execFileSync2 } from "child_process";
-var API_BASE = "https://api.github.com";
+var API_BASE2 = "https://api.github.com";
 function token() {
-  const t = process.env["GITHUB_TOKEN"];
+  const t = process.env.GITHUB_TOKEN;
   if (!t) throw new Error("GITHUB_TOKEN is required for GitHub API access");
   return t;
 }
@@ -8850,7 +8995,7 @@ function headers(accept = "application/vnd.github+json") {
   };
 }
 async function ghFileAtSha(sha, path, repo) {
-  const url = `${API_BASE}/repos/${repo}/contents/${path}?ref=${sha}`;
+  const url = `${API_BASE2}/repos/${repo}/contents/${path}?ref=${sha}`;
   const response = await fetch(url, {
     headers: headers("application/vnd.github.raw+json")
   });
@@ -8858,14 +9003,14 @@ async function ghFileAtSha(sha, path, repo) {
   return response.text();
 }
 async function ghLsTree(sha, repo) {
-  const url = `${API_BASE}/repos/${repo}/git/trees/${sha}?recursive=1`;
+  const url = `${API_BASE2}/repos/${repo}/git/trees/${sha}?recursive=1`;
   const response = await fetch(url, { headers: headers() });
   if (!response.ok) return [];
   const data = await response.json();
   return data.tree.filter((item) => item.type === "blob").map((item) => item.path);
 }
 async function getPrShas(prNumber, repo) {
-  const url = `${API_BASE}/repos/${repo}/pulls/${prNumber}`;
+  const url = `${API_BASE2}/repos/${repo}/pulls/${prNumber}`;
   const response = await fetch(url, { headers: headers() });
   if (!response.ok) {
     throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
@@ -8874,7 +9019,7 @@ async function getPrShas(prNumber, repo) {
   return { baseRefOid: data.base.sha, headRefOid: data.head.sha };
 }
 function detectRepo() {
-  const fromEnv = process.env["GITHUB_REPOSITORY"];
+  const fromEnv = process.env.GITHUB_REPOSITORY;
   if (fromEnv) return fromEnv;
   try {
     const remote = execFileSync2("git", ["remote", "get-url", "origin"], {
@@ -8885,15 +9030,17 @@ function detectRepo() {
     if (match) return match[1];
   } catch {
   }
-  throw new Error(
-    "Could not detect GitHub repo \u2014 set GITHUB_REPOSITORY or pass --repo"
-  );
+  throw new Error("Could not detect GitHub repo \u2014 set GITHUB_REPOSITORY or pass --repo");
 }
 
 // src/index.ts
 async function resolveApiShas(options) {
   if (options.baseSha && options.headSha) {
-    return { baseSha: options.baseSha, headSha: options.headSha, repo: options.repo ?? detectRepo() };
+    return {
+      baseSha: options.baseSha,
+      headSha: options.headSha,
+      repo: options.repo ?? detectRepo()
+    };
   }
   if (options.prNumber) {
     const repo = options.repo ?? detectRepo();
@@ -8966,154 +9113,12 @@ async function run(options = {}) {
   return buildDiffReport(lockfiles, baseRef, headRef);
 }
 
-// src/action/filters.ts
-var import_yaml3 = __toESM(require_dist(), 1);
-function applyFilters(filtersYaml, changes) {
-  if (!filtersYaml.trim()) return {};
-  let config;
-  try {
-    config = (0, import_yaml3.parse)(filtersYaml);
-  } catch {
-    return {};
-  }
-  if (!config || typeof config !== "object") return {};
-  const changedNames = new Set(changes.map((c) => c.name.toLowerCase()));
-  const result = {};
-  for (const [groupName, packages] of Object.entries(config)) {
-    if (!Array.isArray(packages)) continue;
-    result[groupName] = packages.some(
-      (pkg) => typeof pkg === "string" && changedNames.has(pkg.toLowerCase())
-    );
-  }
-  return result;
-}
-
-// src/action/markdown.ts
-function packageUrl(ecosystem, name) {
-  switch (ecosystem) {
-    case "python":
-      return `https://pypi.org/project/${name}/`;
-    case "javascript":
-      return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
-    case "deno":
-      if (name.startsWith("jsr:")) return `https://jsr.io/${name.slice(4)}`;
-      return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
-    default:
-      return null;
-  }
-}
-function formatName(change, ecosystem) {
-  const url = packageUrl(ecosystem, change.name);
-  const linked = url ? `[${change.name}](${url})` : change.name;
-  if (change.is_direct && !change.is_dev) return `**${linked}**`;
-  if (change.is_dev) return `*${linked}*`;
-  return linked;
-}
-function formatLine(change, ecosystem) {
-  const name = formatName(change, ecosystem);
-  if (change.change_type === "updated") {
-    return `- ${name}: \`${change.old_version}\` \u2192 \`${change.new_version}\``;
-  }
-  if (change.change_type === "added") {
-    return `- ${name}: \`${change.new_version}\``;
-  }
-  return `- ${name}: \`${change.old_version}\``;
-}
-function generateMarkdown(report) {
-  const added = [];
-  const updated = [];
-  const removed = [];
-  for (const lf of report.lockfiles) {
-    for (const change of lf.changes) {
-      const entry = { change, ecosystem: lf.ecosystem };
-      if (change.change_type === "added") added.push(entry);
-      else if (change.change_type === "updated") updated.push(entry);
-      else removed.push(entry);
-    }
-  }
-  const fmt = ({ change, ecosystem }) => formatLine(change, ecosystem);
-  const sections = [];
-  if (added.length > 0) sections.push(`### Added
-
-${added.map(fmt).join("\n")}`);
-  if (updated.length > 0) sections.push(`### Changed
-
-${updated.map(fmt).join("\n")}`);
-  if (removed.length > 0) sections.push(`### Removed
-
-${removed.map(fmt).join("\n")}`);
-  return sections.join("\n\n");
-}
-
-// src/action/comment.ts
-var API_BASE2 = "https://api.github.com";
-var MARKER = "<!-- lockdelta -->";
-function githubHeaders(token2) {
-  return {
-    Authorization: `Bearer ${token2}`,
-    Accept: "application/vnd.github+json",
-    "Content-Type": "application/json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-}
-async function findExistingComment(prNumber, repo, token2) {
-  const url = `${API_BASE2}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
-  const response = await fetch(url, { headers: githubHeaders(token2) });
-  if (!response.ok) return null;
-  const comments = await response.json();
-  const found = comments.find((c) => c.body.includes(MARKER));
-  return found ? { id: found.id, nodeId: found.node_id } : null;
-}
-async function postPrComment(markdown, prNumber, repo) {
-  if (!prNumber) throw new Error("post-comment requires a PR number");
-  if (!repo) throw new Error("post-comment requires repo to be set");
-  const t = process.env["GITHUB_TOKEN"];
-  if (!t) throw new Error("GITHUB_TOKEN is required for post-comment");
-  const body = `${MARKER}
-
-${markdown}`;
-  const hdrs = githubHeaders(t);
-  const existing = await findExistingComment(prNumber, repo, t);
-  if (existing !== null) {
-    await fetch(`${API_BASE2}/repos/${repo}/issues/comments/${existing.id}`, {
-      method: "PATCH",
-      headers: hdrs,
-      body: JSON.stringify({ body })
-    });
-  } else {
-    await fetch(`${API_BASE2}/repos/${repo}/issues/${prNumber}/comments`, {
-      method: "POST",
-      headers: hdrs,
-      body: JSON.stringify({ body })
-    });
-  }
-}
-async function hidePrComment(prNumber, repo) {
-  if (!prNumber || !repo) return;
-  const t = process.env["GITHUB_TOKEN"];
-  if (!t) return;
-  const existing = await findExistingComment(prNumber, repo, t);
-  if (!existing) return;
-  await fetch(`${API_BASE2}/graphql`, {
-    method: "POST",
-    headers: githubHeaders(t),
-    body: JSON.stringify({
-      query: `mutation MinimizeComment($id: ID!) {
-        minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
-          minimizedComment { isMinimized }
-        }
-      }`,
-      variables: { id: existing.nodeId }
-    })
-  });
-}
-
 // src/action.ts
 function getInput(name) {
   return (process.env[`INPUT_${name.replace(/-/g, "_").toUpperCase()}`] ?? "").trim();
 }
 function setOutput(name, value) {
-  const outputFile = process.env["GITHUB_OUTPUT"];
+  const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     const delimiter = `DEPDIFF_${Math.random().toString(36).slice(2).toUpperCase()}`;
     appendFileSync(outputFile, `${name}<<${delimiter}
@@ -9134,7 +9139,7 @@ function logNotice(message) {
 `);
 }
 function readEventPayload() {
-  const eventPath = process.env["GITHUB_EVENT_PATH"];
+  const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) return null;
   try {
     return JSON.parse(readFileSync2(eventPath, "utf-8"));
@@ -9145,27 +9150,27 @@ function readEventPayload() {
 function detectPrNumber() {
   const event = readEventPayload();
   if (!event) return "";
-  const pr = event["pull_request"];
-  const num = pr?.number ?? event["number"];
+  const pr = event.pull_request;
+  const num = pr?.number ?? event.number;
   return num != null ? String(num) : "";
 }
 var NULL_SHA = "0000000000000000000000000000000000000000";
 function detectPushShas() {
   const event = readEventPayload();
   if (!event) return null;
-  const before = event["before"];
-  const after = event["after"];
+  const before = event.before;
+  const after = event.after;
   if (!before || !after || before === NULL_SHA) return null;
   return { baseSha: before, headSha: after };
 }
 (async () => {
   try {
     const prNumber = getInput("pr-number") || detectPrNumber();
-    const repo = getInput("repo") || process.env["GITHUB_REPOSITORY"] || "";
+    const repo = getInput("repo") || process.env.GITHUB_REPOSITORY || "";
     const pushShas = !prNumber ? detectPushShas() : null;
     const report = await run({
-      base: getInput("base-ref") || process.env["GITHUB_BASE_REF"],
-      head: getInput("head-ref") || process.env["GITHUB_HEAD_REF"],
+      base: getInput("base-ref") || process.env.GITHUB_BASE_REF,
+      head: getInput("head-ref") || process.env.GITHUB_HEAD_REF,
       prNumber: prNumber || void 0,
       baseSha: pushShas?.baseSha,
       headSha: pushShas?.headSha,
