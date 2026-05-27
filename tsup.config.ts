@@ -24,6 +24,5 @@ export default defineConfig([
     dts: false,
     sourcemap: true,
     noExternal: [/.*/],
-    outExtension: () => ({ js: '.js' }),
   },
 ]);

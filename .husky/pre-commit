@@ -8,4 +8,4 @@ pnpm run lint
 
 # Rebuild compiled output and stage it so dist/ stays in sync with src/
 pnpm run build
-git add -f dist/action.js dist/action.js.map
+git add -f dist/action.cjs dist/action.cjs.map

@@ -87,4 +87,4 @@ outputs:
 
 runs:
   using: 'node24'
-  main: 'dist/action.js'
+  main: 'dist/action.cjs'
