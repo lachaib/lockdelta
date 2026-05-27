@@ -2,12 +2,11 @@ name: Release
 
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   release:
     name: Release
-    if: github.event.release.draft == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
