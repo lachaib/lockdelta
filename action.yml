@@ -20,7 +20,7 @@ inputs:
   pr-number:
     description: >
       GitHub PR number. Uses the PR's exact base and head commit SHAs via the gh CLI,
-      which avoids branch timing issues. Set to ${{ github.event.pull_request.number }}.
+      which avoids branch timing issues. Typically set to github.event.pull_request.number.
     required: false
   repo:
     description: >
