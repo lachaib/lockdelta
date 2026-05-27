@@ -7384,18 +7384,23 @@ async function postPrComment(markdown, prNumber, repo) {
 ${markdown}`;
   const hdrs = githubHeaders(t);
   const existing = await findExistingComment(prNumber, repo, t);
+  let res;
   if (existing !== null) {
-    await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
+    res = await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
       method: "PATCH",
       headers: hdrs,
       body: JSON.stringify({ body })
     });
   } else {
-    await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
+    res = await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
       method: "POST",
       headers: hdrs,
       body: JSON.stringify({ body })
     });
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to post PR comment (${res.status}): ${text}`);
   }
 }
 async function hidePrComment(prNumber, repo) {

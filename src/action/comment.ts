@@ -50,18 +50,24 @@ export async function postPrComment(
 
   const existing = await findExistingComment(prNumber, repo, t);
 
+  let res: Response;
   if (existing !== null) {
-    await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
+    res = await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
       method: 'PATCH',
       headers: hdrs,
       body: JSON.stringify({ body }),
     });
   } else {
-    await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
+    res = await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
       method: 'POST',
       headers: hdrs,
       body: JSON.stringify({ body }),
     });
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to post PR comment (${res.status}): ${text}`);
   }
 }
 
