@@ -95,10 +95,6 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
       postCommentMode === 'true' || (postCommentMode === 'if-changed' && hasChanges);
     const shouldHide = postCommentMode === 'if-changed' && !hasChanges;
 
-    logNotice(
-      `lockdelta: post-comment=${postCommentMode} prNumber=${prNumber || '(empty)'} repo=${repo || '(empty)'} hasChanges=${hasChanges} shouldPost=${shouldPost}`,
-    );
-
     if (wantsMarkdown || shouldPost) {
       const md = generateMarkdown(report);
 
@@ -110,7 +106,6 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
 
       if (shouldPost) {
         await postPrComment(md, prNumber, repo || undefined);
-        logNotice(`lockdelta: PR comment posted on ${repo}#${prNumber}`);
       }
     }
 
