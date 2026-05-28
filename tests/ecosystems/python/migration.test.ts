@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLockfilePair } from '../../../src/core/discovery.js';
 import type { LockfileInfo } from '../../../src/core/discovery.js';
+import { resolveLockfilePair } from '../../../src/core/discovery.js';
 
 describe('lockfile migration detection', () => {
   const uvLock: LockfileInfo = { path: 'uv.lock', type: 'uv', ecosystemName: 'python' };

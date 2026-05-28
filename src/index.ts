@@ -4,16 +4,16 @@ import { gitLsTree, gitShow } from './sources/git.js';
 import { detectRepo, getPrShas, ghFileAtSha, ghLsTree } from './sources/github.js';
 import type { DiffReport, FileSource } from './types.js';
 
-export type {
-  DiffReport,
-  LockfileEntry,
-  PackageChange,
-  MigrationInfo,
-  LockfilePair,
-  DirectDeps,
-} from './types.js';
 export type { Ecosystem, SupportedLockfile } from './ecosystems/base.js';
 export { registerEcosystem } from './ecosystems/index.js';
+export type {
+  DiffReport,
+  DirectDeps,
+  LockfileEntry,
+  LockfilePair,
+  MigrationInfo,
+  PackageChange,
+} from './types.js';
 
 export interface RunOptions {
   base?: string;
