@@ -59,11 +59,23 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
   try {
     const prNumber = getInput('pr-number') || detectPrNumber();
     const repo = getInput('repo') || process.env.GITHUB_REPOSITORY || '';
-    const pushShas = !prNumber ? detectPushShas() : null;
+
+    const inputBase = getInput('base-ref') || undefined;
+    const inputHead = getInput('head-ref') || undefined;
+
+    // Fall back to PR event env vars only when NEITHER side is explicitly set —
+    // mixing contexts (e.g. explicit base-ref + GITHUB_HEAD_REF) produces wrong comparisons.
+    const base = inputBase ?? (!inputHead ? process.env.GITHUB_BASE_REF || undefined : undefined);
+    const head = inputHead ?? (!inputBase ? process.env.GITHUB_HEAD_REF || undefined : undefined);
+
+    // Only use push event SHAs when no explicit refs and not in PR mode.
+    // baseSha/headSha take priority over base/head inside run(), so passing both
+    // would silently override an explicit base-ref: input.
+    const pushShas = !prNumber && !inputBase && !inputHead ? detectPushShas() : null;
 
     const report = await run({
-      base: getInput('base-ref') || process.env.GITHUB_BASE_REF,
-      head: getInput('head-ref') || process.env.GITHUB_HEAD_REF,
+      base,
+      head,
       prNumber: prNumber || undefined,
       baseSha: pushShas?.baseSha,
       headSha: pushShas?.headSha,

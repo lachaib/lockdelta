@@ -9167,10 +9167,14 @@ function detectPushShas() {
   try {
     const prNumber = getInput("pr-number") || detectPrNumber();
     const repo = getInput("repo") || process.env.GITHUB_REPOSITORY || "";
-    const pushShas = !prNumber ? detectPushShas() : null;
+    const inputBase = getInput("base-ref") || void 0;
+    const inputHead = getInput("head-ref") || void 0;
+    const base = inputBase ?? (!inputHead ? process.env.GITHUB_BASE_REF || void 0 : void 0);
+    const head = inputHead ?? (!inputBase ? process.env.GITHUB_HEAD_REF || void 0 : void 0);
+    const pushShas = !prNumber && !inputBase && !inputHead ? detectPushShas() : null;
     const report = await run({
-      base: getInput("base-ref") || process.env.GITHUB_BASE_REF,
-      head: getInput("head-ref") || process.env.GITHUB_HEAD_REF,
+      base,
+      head,
       prNumber: prNumber || void 0,
       baseSha: pushShas?.baseSha,
       headSha: pushShas?.headSha,
