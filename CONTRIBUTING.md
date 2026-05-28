@@ -11,7 +11,7 @@ This project follows a simple rule: be respectful. Constructive criticism is gre
 ```bash
 pnpm install
 pnpm test          # run tests with Vitest
-pnpm run lint      # check with Biome
+pnpm run check     # check with Biome
 pnpm run lint:fix  # auto-fix Biome issues
 pnpm run build     # compile TypeScript with tsup
 pnpm run typecheck # tsc --noEmit
@@ -31,5 +31,5 @@ The `Ecosystem` interface is documented in the [README](README.md#extending-with
 ## Submitting changes
 
 - Keep pull requests focused — one feature or fix per PR.
-- Make sure `pnpm test` and `pnpm run lint` both pass before opening a PR.
+- Make sure `pnpm test` and `pnpm run check` both pass before opening a PR.
 - Describe *why* the change is needed, not just what it does.
