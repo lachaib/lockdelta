@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { buildDiffReport, collectLockfileEntries } from './core/report.js';
 import { gitLsTree, gitShow } from './sources/git.js';
 import { detectRepo, getPrShas, ghFileAtSha, ghLsTree } from './sources/github.js';
+import { readLocalFile } from './sources/local.js';
 import type { DiffReport, FileSource } from './types.js';
 
 export type { Ecosystem, SupportedLockfile } from './ecosystems/base.js';
@@ -56,18 +56,10 @@ export async function run(options: RunOptions = {}): Promise<DiffReport> {
     const oldPath = options.oldFile;
     const newPath = options.newFile;
 
-    const readLocal = (filePath: string): string | null => {
-      try {
-        return readFileSync(filePath, 'utf-8');
-      } catch {
-        return null;
-      }
-    };
-
     const getBase: FileSource = (path) =>
-      Promise.resolve(path === oldPath ? readLocal(oldPath) : null);
+      Promise.resolve(path === oldPath ? readLocalFile(oldPath) : null);
     const getHead: FileSource = (path) =>
-      Promise.resolve(path === newPath ? readLocal(newPath) : null);
+      Promise.resolve(path === newPath ? readLocalFile(newPath) : null);
 
     const lockfiles = await collectLockfileEntries({
       getBase,

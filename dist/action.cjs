@@ -7502,9 +7502,6 @@ ${removed.map(fmt).join("\n")}`);
   return sections.join("\n\n");
 }
 
-// src/index.ts
-var import_node_fs = require("fs");
-
 // src/core/report.ts
 var import_node_path2 = require("path");
 
@@ -9033,6 +9030,16 @@ function detectRepo() {
   throw new Error("Could not detect GitHub repo \u2014 set GITHUB_REPOSITORY or pass --repo");
 }
 
+// src/sources/local.ts
+var import_node_fs = require("fs");
+function readLocalFile(path) {
+  try {
+    return (0, import_node_fs.readFileSync)(path, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
 // src/index.ts
 async function resolveApiShas(options) {
   if (options.baseSha && options.headSha) {
@@ -9054,15 +9061,8 @@ async function run(options = {}) {
   if (options.oldFile && options.newFile) {
     const oldPath = options.oldFile;
     const newPath = options.newFile;
-    const readLocal = (filePath) => {
-      try {
-        return (0, import_node_fs.readFileSync)(filePath, "utf-8");
-      } catch {
-        return null;
-      }
-    };
-    const getBase2 = (path) => Promise.resolve(path === oldPath ? readLocal(oldPath) : null);
-    const getHead2 = (path) => Promise.resolve(path === newPath ? readLocal(newPath) : null);
+    const getBase2 = (path) => Promise.resolve(path === oldPath ? readLocalFile(oldPath) : null);
+    const getHead2 = (path) => Promise.resolve(path === newPath ? readLocalFile(newPath) : null);
     const lockfiles2 = await collectLockfileEntries({
       getBase: getBase2,
       getHead: getHead2,
