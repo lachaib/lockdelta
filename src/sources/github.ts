@@ -2,15 +2,32 @@ import { execFileSync } from 'node:child_process';
 
 const API_BASE = 'https://api.github.com';
 
-function token(): string {
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) throw new Error('GITHUB_TOKEN is required for GitHub API access');
-  return t;
+let cachedToken: string | undefined;
+
+export function resolveToken(): string {
+  if (cachedToken) return cachedToken;
+  if (process.env.GITHUB_TOKEN) {
+    cachedToken = process.env.GITHUB_TOKEN;
+    return cachedToken;
+  }
+  try {
+    const t = execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    if (t) {
+      cachedToken = t;
+      return cachedToken;
+    }
+  } catch {
+    // gh not installed or not authenticated
+  }
+  throw new Error('No GitHub token found. Set GITHUB_TOKEN or run `gh auth login`.');
 }
 
 function headers(accept = 'application/vnd.github+json'): Record<string, string> {
   return {
-    Authorization: `Bearer ${token()}`,
+    Authorization: `Bearer ${resolveToken()}`,
     Accept: accept,
     'X-GitHub-Api-Version': '2022-11-28',
   };
