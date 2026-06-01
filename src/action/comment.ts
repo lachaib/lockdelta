@@ -1,3 +1,5 @@
+import { resolveToken } from '../sources/github.js';
+
 const API_BASE = 'https://api.github.com';
 const MARKER = '<!-- lockdelta -->';
 
@@ -42,9 +44,7 @@ export async function postPrComment(
   if (!prNumber) throw new Error('post-comment requires a PR number');
   if (!repo) throw new Error('post-comment requires repo to be set');
 
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) throw new Error('GITHUB_TOKEN is required for post-comment');
-
+  const t = resolveToken();
   const body = `${MARKER}\n\n${markdown}`;
   const hdrs = githubHeaders(t);
 
@@ -74,8 +74,12 @@ export async function postPrComment(
 export async function hidePrComment(prNumber: string, repo?: string): Promise<void> {
   if (!prNumber || !repo) return;
 
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) return;
+  let t: string;
+  try {
+    t = resolveToken();
+  } catch {
+    return;
+  }
 
   const existing = await findExistingComment(prNumber, repo, t);
   if (!existing) return;

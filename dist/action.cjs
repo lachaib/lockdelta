@@ -3776,29 +3776,29 @@ var require_resolve_props = __commonJS({
       let comma = null;
       let found = null;
       let start = null;
-      for (const token2 of tokens) {
+      for (const token of tokens) {
         if (reqSpace) {
-          if (token2.type !== "space" && token2.type !== "newline" && token2.type !== "comma")
-            onError(token2.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+          if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
+            onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
           reqSpace = false;
         }
         if (tab) {
-          if (atNewline && token2.type !== "comment" && token2.type !== "newline") {
+          if (atNewline && token.type !== "comment" && token.type !== "newline") {
             onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
           }
           tab = null;
         }
-        switch (token2.type) {
+        switch (token.type) {
           case "space":
-            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token2.source.includes("	")) {
-              tab = token2;
+            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	")) {
+              tab = token;
             }
             hasSpace = true;
             break;
           case "comment": {
             if (!hasSpace)
-              onError(token2, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
-            const cb = token2.source.substring(1) || " ";
+              onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+            const cb = token.source.substring(1) || " ";
             if (!comment)
               comment = cb;
             else
@@ -3810,33 +3810,33 @@ var require_resolve_props = __commonJS({
           case "newline":
             if (atNewline) {
               if (comment)
-                comment += token2.source;
+                comment += token.source;
               else if (!found || indicator !== "seq-item-ind")
                 spaceBefore = true;
             } else
-              commentSep += token2.source;
+              commentSep += token.source;
             atNewline = true;
             hasNewline = true;
             if (anchor || tag)
-              newlineAfterProp = token2;
+              newlineAfterProp = token;
             hasSpace = true;
             break;
           case "anchor":
             if (anchor)
-              onError(token2, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
-            if (token2.source.endsWith(":"))
-              onError(token2.offset + token2.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
-            anchor = token2;
-            start ?? (start = token2.offset);
+              onError(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
+            if (token.source.endsWith(":"))
+              onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
+            anchor = token;
+            start ?? (start = token.offset);
             atNewline = false;
             hasSpace = false;
             reqSpace = true;
             break;
           case "tag": {
             if (tag)
-              onError(token2, "MULTIPLE_TAGS", "A node can have at most one tag");
-            tag = token2;
-            start ?? (start = token2.offset);
+              onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
+            tag = token;
+            start ?? (start = token.offset);
             atNewline = false;
             hasSpace = false;
             reqSpace = true;
@@ -3844,25 +3844,25 @@ var require_resolve_props = __commonJS({
           }
           case indicator:
             if (anchor || tag)
-              onError(token2, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token2.source} indicator`);
+              onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
             if (found)
-              onError(token2, "UNEXPECTED_TOKEN", `Unexpected ${token2.source} in ${flow ?? "collection"}`);
-            found = token2;
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+            found = token;
             atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
             hasSpace = false;
             break;
           case "comma":
             if (flow) {
               if (comma)
-                onError(token2, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
-              comma = token2;
+                onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
+              comma = token;
               atNewline = false;
               hasSpace = false;
               break;
             }
           // else fallthrough
           default:
-            onError(token2, "UNEXPECTED_TOKEN", `Unexpected ${token2.type} token`);
+            onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`);
             atNewline = false;
             hasSpace = false;
         }
@@ -4135,15 +4135,15 @@ var require_resolve_end = __commonJS({
       if (end) {
         let hasSpace = false;
         let sep = "";
-        for (const token2 of end) {
-          const { source, type } = token2;
+        for (const token of end) {
+          const { source, type } = token;
           switch (type) {
             case "space":
               hasSpace = true;
               break;
             case "comment": {
               if (reqSpace && !hasSpace)
-                onError(token2, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+                onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
               const cb = source.substring(1) || " ";
               if (!comment)
                 comment = cb;
@@ -4158,7 +4158,7 @@ var require_resolve_end = __commonJS({
               hasSpace = true;
               break;
             default:
-              onError(token2, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
           }
           offset += source.length;
         }
@@ -4182,7 +4182,7 @@ var require_resolve_flow_collection = __commonJS({
     var utilContainsNewline = require_util_contains_newline();
     var utilMapIncludes = require_util_map_includes();
     var blockMsg = "Block collections are not allowed within flow collections";
-    var isBlock = (token2) => token2 && (token2.type === "block-map" || token2.type === "block-seq");
+    var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
       const isMap = fc.start.source === "{";
       const fcName = isMap ? "flow map" : "flow sequence";
@@ -4374,8 +4374,8 @@ var require_compose_collection = __commonJS({
     var resolveBlockMap = require_resolve_block_map();
     var resolveBlockSeq = require_resolve_block_seq();
     var resolveFlowCollection = require_resolve_flow_collection();
-    function resolveCollection(CN, ctx, token2, onError, tagName, tag) {
-      const coll = token2.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token2, onError, tag) : token2.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token2, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token2, onError, tag);
+    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
+      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag);
       const Coll = coll.constructor;
       if (tagName === "!" || tagName === Coll.tagName) {
         coll.tag = Coll.tagName;
@@ -4385,10 +4385,10 @@ var require_compose_collection = __commonJS({
         coll.tag = tagName;
       return coll;
     }
-    function composeCollection(CN, ctx, token2, props, onError) {
+    function composeCollection(CN, ctx, token, props, onError) {
       const tagToken = props.tag;
       const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
-      if (token2.type === "block-seq") {
+      if (token.type === "block-seq") {
         const { anchor, newlineAfterProp: nl } = props;
         const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
         if (lastProp && (!nl || nl.offset < lastProp.offset)) {
@@ -4396,9 +4396,9 @@ var require_compose_collection = __commonJS({
           onError(lastProp, "MISSING_CHAR", message);
         }
       }
-      const expType = token2.type === "block-map" ? "map" : token2.type === "block-seq" ? "seq" : token2.start.source === "{" ? "map" : "seq";
+      const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
       if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq") {
-        return resolveCollection(CN, ctx, token2, onError, tagName);
+        return resolveCollection(CN, ctx, token, onError, tagName);
       }
       let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
       if (!tag) {
@@ -4412,10 +4412,10 @@ var require_compose_collection = __commonJS({
           } else {
             onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
           }
-          return resolveCollection(CN, ctx, token2, onError, tagName);
+          return resolveCollection(CN, ctx, token, onError, tagName);
         }
       }
-      const coll = resolveCollection(CN, ctx, token2, onError, tagName, tag);
+      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
       const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
       const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
       node.range = coll.range;
@@ -4565,31 +4565,31 @@ var require_resolve_block_scalar = __commonJS({
       let comment = "";
       let length = source.length;
       for (let i = 1; i < props.length; ++i) {
-        const token2 = props[i];
-        switch (token2.type) {
+        const token = props[i];
+        switch (token.type) {
           case "space":
             hasSpace = true;
           // fallthrough
           case "newline":
-            length += token2.source.length;
+            length += token.source.length;
             break;
           case "comment":
             if (strict && !hasSpace) {
               const message = "Comments must be separated from other tokens by white space characters";
-              onError(token2, "MISSING_CHAR", message);
+              onError(token, "MISSING_CHAR", message);
             }
-            length += token2.source.length;
-            comment = token2.source.substring(1);
+            length += token.source.length;
+            comment = token.source.substring(1);
             break;
           case "error":
-            onError(token2, "UNEXPECTED_TOKEN", token2.message);
-            length += token2.source.length;
+            onError(token, "UNEXPECTED_TOKEN", token.message);
+            length += token.source.length;
             break;
           /* istanbul ignore next should not happen */
           default: {
-            const message = `Unexpected token in block scalar header: ${token2.type}`;
-            onError(token2, "UNEXPECTED_TOKEN", message);
-            const ts = token2.source;
+            const message = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message);
+            const ts = token.source;
             if (ts && typeof ts === "string")
               length += ts.length;
           }
@@ -4839,25 +4839,25 @@ var require_compose_scalar = __commonJS({
     var Scalar = require_Scalar();
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
-    function composeScalar(ctx, token2, tagToken, onError) {
-      const { value, type, comment, range } = token2.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token2, onError) : resolveFlowScalar.resolveFlowScalar(token2, ctx.options.strict, onError);
+    function composeScalar(ctx, token, tagToken, onError) {
+      const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError);
       const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
       let tag;
       if (ctx.options.stringKeys && ctx.atKey) {
         tag = ctx.schema[identity.SCALAR];
       } else if (tagName)
         tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
-      else if (token2.type === "scalar")
-        tag = findScalarTagByTest(ctx, value, token2, onError);
+      else if (token.type === "scalar")
+        tag = findScalarTagByTest(ctx, value, token, onError);
       else
         tag = ctx.schema[identity.SCALAR];
       let scalar;
       try {
-        const res = tag.resolve(value, (msg) => onError(tagToken ?? token2, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
         scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        onError(tagToken ?? token2, "TAG_RESOLVE_FAILED", msg);
+        onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
         scalar = new Scalar.Scalar(value);
       }
       scalar.range = range;
@@ -4895,7 +4895,7 @@ var require_compose_scalar = __commonJS({
       onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str");
       return schema[identity.SCALAR];
     }
-    function findScalarTagByTest({ atKey, directives, schema }, value, token2, onError) {
+    function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
       const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
       if (schema.compat) {
         const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
@@ -4903,7 +4903,7 @@ var require_compose_scalar = __commonJS({
           const ts = directives.tagString(tag.tag);
           const cs = directives.tagString(compat.tag);
           const msg = `Value may be parsed as either ${ts} or ${cs}`;
-          onError(token2, "TAG_RESOLVE_FAILED", msg, true);
+          onError(token, "TAG_RESOLVE_FAILED", msg, true);
         }
       }
       return tag;
@@ -4953,22 +4953,22 @@ var require_compose_node = __commonJS({
     var resolveEnd = require_resolve_end();
     var utilEmptyScalarPosition = require_util_empty_scalar_position();
     var CN = { composeNode, composeEmptyNode };
-    function composeNode(ctx, token2, props, onError) {
+    function composeNode(ctx, token, props, onError) {
       const atKey = ctx.atKey;
       const { spaceBefore, comment, anchor, tag } = props;
       let node;
       let isSrcToken = true;
-      switch (token2.type) {
+      switch (token.type) {
         case "alias":
-          node = composeAlias(ctx, token2, onError);
+          node = composeAlias(ctx, token, onError);
           if (anchor || tag)
-            onError(token2, "ALIAS_PROPS", "An alias node must not specify any properties");
+            onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
           break;
         case "scalar":
         case "single-quoted-scalar":
         case "double-quoted-scalar":
         case "block-scalar":
-          node = composeScalar.composeScalar(ctx, token2, tag, onError);
+          node = composeScalar.composeScalar(ctx, token, tag, onError);
           if (anchor)
             node.anchor = anchor.source.substring(1);
           break;
@@ -4976,47 +4976,47 @@ var require_compose_node = __commonJS({
         case "block-seq":
         case "flow-collection":
           try {
-            node = composeCollection.composeCollection(CN, ctx, token2, props, onError);
+            node = composeCollection.composeCollection(CN, ctx, token, props, onError);
             if (anchor)
               node.anchor = anchor.source.substring(1);
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            onError(token2, "RESOURCE_EXHAUSTION", message);
+            onError(token, "RESOURCE_EXHAUSTION", message);
           }
           break;
         default: {
-          const message = token2.type === "error" ? token2.message : `Unsupported token (type: ${token2.type})`;
-          onError(token2, "UNEXPECTED_TOKEN", message);
+          const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message);
           isSrcToken = false;
         }
       }
-      node ?? (node = composeEmptyNode(ctx, token2.offset, void 0, null, props, onError));
+      node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError));
       if (anchor && node.anchor === "")
         onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
       if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
         const msg = "With stringKeys, all keys must be strings";
-        onError(tag ?? token2, "NON_STRING_KEY", msg);
+        onError(tag ?? token, "NON_STRING_KEY", msg);
       }
       if (spaceBefore)
         node.spaceBefore = true;
       if (comment) {
-        if (token2.type === "scalar" && token2.source === "")
+        if (token.type === "scalar" && token.source === "")
           node.comment = comment;
         else
           node.commentBefore = comment;
       }
       if (ctx.options.keepSourceTokens && isSrcToken)
-        node.srcToken = token2;
+        node.srcToken = token;
       return node;
     }
     function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
-      const token2 = {
+      const token = {
         type: "scalar",
         offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
         indent: -1,
         source: ""
       };
-      const node = composeScalar.composeScalar(ctx, token2, tag, onError);
+      const node = composeScalar.composeScalar(ctx, token, tag, onError);
       if (anchor) {
         node.anchor = anchor.source.substring(1);
         if (node.anchor === "")
@@ -5207,28 +5207,28 @@ ${cb}` : comment;
        * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
        */
       *compose(tokens, forceDoc = false, endOffset = -1) {
-        for (const token2 of tokens)
-          yield* this.next(token2);
+        for (const token of tokens)
+          yield* this.next(token);
         yield* this.end(forceDoc, endOffset);
       }
       /** Advance the composer by one CST token. */
-      *next(token2) {
+      *next(token) {
         if (node_process.env.LOG_STREAM)
-          console.dir(token2, { depth: null });
-        switch (token2.type) {
+          console.dir(token, { depth: null });
+        switch (token.type) {
           case "directive":
-            this.directives.add(token2.source, (offset, message, warning) => {
-              const pos = getErrorPos(token2);
+            this.directives.add(token.source, (offset, message, warning) => {
+              const pos = getErrorPos(token);
               pos[0] += offset;
               this.onError(pos, "BAD_DIRECTIVE", message, warning);
             });
-            this.prelude.push(token2.source);
+            this.prelude.push(token.source);
             this.atDirectives = true;
             break;
           case "document": {
-            const doc = composeDoc.composeDoc(this.options, this.directives, token2, this.onError);
+            const doc = composeDoc.composeDoc(this.options, this.directives, token, this.onError);
             if (this.atDirectives && !doc.directives.docStart)
-              this.onError(token2, "MISSING_CHAR", "Missing directives-end/doc-start indicator line");
+              this.onError(token, "MISSING_CHAR", "Missing directives-end/doc-start indicator line");
             this.decorate(doc, false);
             if (this.doc)
               yield this.doc;
@@ -5241,11 +5241,11 @@ ${cb}` : comment;
             break;
           case "comment":
           case "newline":
-            this.prelude.push(token2.source);
+            this.prelude.push(token.source);
             break;
           case "error": {
-            const msg = token2.source ? `${token2.message}: ${JSON.stringify(token2.source)}` : token2.message;
-            const error = new errors.YAMLParseError(getErrorPos(token2), "UNEXPECTED_TOKEN", msg);
+            const msg = token.source ? `${token.message}: ${JSON.stringify(token.source)}` : token.message;
+            const error = new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
             if (this.atDirectives || !this.doc)
               this.errors.push(error);
             else
@@ -5255,11 +5255,11 @@ ${cb}` : comment;
           case "doc-end": {
             if (!this.doc) {
               const msg = "Unexpected doc-end without preceding document";
-              this.errors.push(new errors.YAMLParseError(getErrorPos(token2), "UNEXPECTED_TOKEN", msg));
+              this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
               break;
             }
             this.doc.directives.docEnd = true;
-            const end = resolveEnd.resolveEnd(token2.end, token2.offset + token2.source.length, this.doc.options.strict, this.onError);
+            const end = resolveEnd.resolveEnd(token.end, token.offset + token.source.length, this.doc.options.strict, this.onError);
             this.decorate(this.doc, true);
             if (end.comment) {
               const dc = this.doc.comment;
@@ -5270,7 +5270,7 @@ ${end.comment}` : end.comment;
             break;
           }
           default:
-            this.errors.push(new errors.YAMLParseError(getErrorPos(token2), "UNEXPECTED_TOKEN", `Unsupported token ${token2.type}`));
+            this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
         }
       }
       /**
@@ -5307,8 +5307,8 @@ var require_cst_scalar = __commonJS({
     var resolveFlowScalar = require_resolve_flow_scalar();
     var errors = require_errors();
     var stringifyString = require_stringifyString();
-    function resolveAsScalar(token2, strict = true, onError) {
-      if (token2) {
+    function resolveAsScalar(token, strict = true, onError) {
+      if (token) {
         const _onError = (pos, code, message) => {
           const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
           if (onError)
@@ -5316,13 +5316,13 @@ var require_cst_scalar = __commonJS({
           else
             throw new errors.YAMLParseError([offset, offset + 1], code, message);
         };
-        switch (token2.type) {
+        switch (token.type) {
           case "scalar":
           case "single-quoted-scalar":
           case "double-quoted-scalar":
-            return resolveFlowScalar.resolveFlowScalar(token2, strict, _onError);
+            return resolveFlowScalar.resolveFlowScalar(token, strict, _onError);
           case "block-scalar":
-            return resolveBlockScalar.resolveBlockScalar({ options: { strict } }, token2, _onError);
+            return resolveBlockScalar.resolveBlockScalar({ options: { strict } }, token, _onError);
         }
       }
       return null;
@@ -5359,13 +5359,13 @@ var require_cst_scalar = __commonJS({
           return { type: "scalar", offset, indent, source, end };
       }
     }
-    function setScalarValue(token2, value, context = {}) {
+    function setScalarValue(token, value, context = {}) {
       let { afterKey = false, implicitKey = false, inFlow = false, type } = context;
-      let indent = "indent" in token2 ? token2.indent : null;
+      let indent = "indent" in token ? token.indent : null;
       if (afterKey && typeof indent === "number")
         indent += 2;
       if (!type)
-        switch (token2.type) {
+        switch (token.type) {
           case "single-quoted-scalar":
             type = "QUOTE_SINGLE";
             break;
@@ -5373,7 +5373,7 @@ var require_cst_scalar = __commonJS({
             type = "QUOTE_DOUBLE";
             break;
           case "block-scalar": {
-            const header = token2.props[0];
+            const header = token.props[0];
             if (header.type !== "block-scalar-header")
               throw new Error("Invalid block scalar header");
             type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
@@ -5391,40 +5391,40 @@ var require_cst_scalar = __commonJS({
       switch (source[0]) {
         case "|":
         case ">":
-          setBlockScalarValue(token2, source);
+          setBlockScalarValue(token, source);
           break;
         case '"':
-          setFlowScalarValue(token2, source, "double-quoted-scalar");
+          setFlowScalarValue(token, source, "double-quoted-scalar");
           break;
         case "'":
-          setFlowScalarValue(token2, source, "single-quoted-scalar");
+          setFlowScalarValue(token, source, "single-quoted-scalar");
           break;
         default:
-          setFlowScalarValue(token2, source, "scalar");
+          setFlowScalarValue(token, source, "scalar");
       }
     }
-    function setBlockScalarValue(token2, source) {
+    function setBlockScalarValue(token, source) {
       const he = source.indexOf("\n");
       const head = source.substring(0, he);
       const body = source.substring(he + 1) + "\n";
-      if (token2.type === "block-scalar") {
-        const header = token2.props[0];
+      if (token.type === "block-scalar") {
+        const header = token.props[0];
         if (header.type !== "block-scalar-header")
           throw new Error("Invalid block scalar header");
         header.source = head;
-        token2.source = body;
+        token.source = body;
       } else {
-        const { offset } = token2;
-        const indent = "indent" in token2 ? token2.indent : -1;
+        const { offset } = token;
+        const indent = "indent" in token ? token.indent : -1;
         const props = [
           { type: "block-scalar-header", offset, indent, source: head }
         ];
-        if (!addEndtoBlockProps(props, "end" in token2 ? token2.end : void 0))
+        if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
           props.push({ type: "newline", offset: -1, indent, source: "\n" });
-        for (const key of Object.keys(token2))
+        for (const key of Object.keys(token))
           if (key !== "type" && key !== "offset")
-            delete token2[key];
-        Object.assign(token2, { type: "block-scalar", indent, props, source: body });
+            delete token[key];
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
       }
     }
     function addEndtoBlockProps(props, end) {
@@ -5441,40 +5441,40 @@ var require_cst_scalar = __commonJS({
           }
       return false;
     }
-    function setFlowScalarValue(token2, source, type) {
-      switch (token2.type) {
+    function setFlowScalarValue(token, source, type) {
+      switch (token.type) {
         case "scalar":
         case "double-quoted-scalar":
         case "single-quoted-scalar":
-          token2.type = type;
-          token2.source = source;
+          token.type = type;
+          token.source = source;
           break;
         case "block-scalar": {
-          const end = token2.props.slice(1);
+          const end = token.props.slice(1);
           let oa = source.length;
-          if (token2.props[0].type === "block-scalar-header")
-            oa -= token2.props[0].source.length;
+          if (token.props[0].type === "block-scalar-header")
+            oa -= token.props[0].source.length;
           for (const tok of end)
             tok.offset += oa;
-          delete token2.props;
-          Object.assign(token2, { type, source, end });
+          delete token.props;
+          Object.assign(token, { type, source, end });
           break;
         }
         case "block-map":
         case "block-seq": {
-          const offset = token2.offset + source.length;
-          const nl = { type: "newline", offset, indent: token2.indent, source: "\n" };
-          delete token2.items;
-          Object.assign(token2, { type, source, end: [nl] });
+          const offset = token.offset + source.length;
+          const nl = { type: "newline", offset, indent: token.indent, source: "\n" };
+          delete token.items;
+          Object.assign(token, { type, source, end: [nl] });
           break;
         }
         default: {
-          const indent = "indent" in token2 ? token2.indent : -1;
-          const end = "end" in token2 && Array.isArray(token2.end) ? token2.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
-          for (const key of Object.keys(token2))
+          const indent = "indent" in token ? token.indent : -1;
+          const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
+          for (const key of Object.keys(token))
             if (key !== "type" && key !== "offset")
-              delete token2[key];
-          Object.assign(token2, { type, indent, source, end });
+              delete token[key];
+          Object.assign(token, { type, indent, source, end });
         }
       }
     }
@@ -5489,40 +5489,40 @@ var require_cst_stringify = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports2) {
     "use strict";
     var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
-    function stringifyToken(token2) {
-      switch (token2.type) {
+    function stringifyToken(token) {
+      switch (token.type) {
         case "block-scalar": {
           let res = "";
-          for (const tok of token2.props)
+          for (const tok of token.props)
             res += stringifyToken(tok);
-          return res + token2.source;
+          return res + token.source;
         }
         case "block-map":
         case "block-seq": {
           let res = "";
-          for (const item of token2.items)
+          for (const item of token.items)
             res += stringifyItem(item);
           return res;
         }
         case "flow-collection": {
-          let res = token2.start.source;
-          for (const item of token2.items)
+          let res = token.start.source;
+          for (const item of token.items)
             res += stringifyItem(item);
-          for (const st of token2.end)
+          for (const st of token.end)
             res += st.source;
           return res;
         }
         case "document": {
-          let res = stringifyItem(token2);
-          if (token2.end)
-            for (const st of token2.end)
+          let res = stringifyItem(token);
+          if (token.end)
+            for (const st of token.end)
               res += st.source;
           return res;
         }
         default: {
-          let res = token2.source;
-          if ("end" in token2 && token2.end)
-            for (const st of token2.end)
+          let res = token.source;
+          if ("end" in token && token.end)
+            for (const st of token.end)
               res += st.source;
           return res;
         }
@@ -5584,16 +5584,16 @@ var require_cst_visit = __commonJS({
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
-        const token2 = item[field];
-        if (token2 && "items" in token2) {
-          for (let i = 0; i < token2.items.length; ++i) {
-            const ci = _visit(Object.freeze(path.concat([[field, i]])), token2.items[i], visitor);
+        const token = item[field];
+        if (token && "items" in token) {
+          for (let i = 0; i < token.items.length; ++i) {
+            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
               return BREAK;
             else if (ci === REMOVE) {
-              token2.items.splice(i, 1);
+              token.items.splice(i, 1);
               i -= 1;
             }
           }
@@ -5618,10 +5618,10 @@ var require_cst = __commonJS({
     var DOCUMENT = "";
     var FLOW_END = "";
     var SCALAR = "";
-    var isCollection = (token2) => !!token2 && "items" in token2;
-    var isScalar = (token2) => !!token2 && (token2.type === "scalar" || token2.type === "single-quoted-scalar" || token2.type === "double-quoted-scalar" || token2.type === "block-scalar");
-    function prettyToken(token2) {
-      switch (token2) {
+    var isCollection = (token) => !!token && "items" in token;
+    var isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    function prettyToken(token) {
+      switch (token) {
         case BOM:
           return "<BOM>";
         case DOCUMENT:
@@ -5631,7 +5631,7 @@ var require_cst = __commonJS({
         case SCALAR:
           return "<SCALAR>";
         default:
-          return JSON.stringify(token2);
+          return JSON.stringify(token);
       }
     }
     function tokenType(source) {
@@ -6355,8 +6355,8 @@ var require_parser = __commonJS({
       }
       return -1;
     }
-    function isFlowToken(token2) {
-      switch (token2?.type) {
+    function isFlowToken(token) {
+      switch (token?.type) {
         case "alias":
         case "scalar":
         case "single-quoted-scalar":
@@ -6563,38 +6563,38 @@ var require_parser = __commonJS({
         return this.stack[this.stack.length - n];
       }
       *pop(error) {
-        const token2 = error ?? this.stack.pop();
-        if (!token2) {
+        const token = error ?? this.stack.pop();
+        if (!token) {
           const message = "Tried to pop an empty stack";
           yield { type: "error", offset: this.offset, source: "", message };
         } else if (this.stack.length === 0) {
-          yield token2;
+          yield token;
         } else {
           const top = this.peek(1);
-          if (token2.type === "block-scalar") {
-            token2.indent = "indent" in top ? top.indent : 0;
-          } else if (token2.type === "flow-collection" && top.type === "document") {
-            token2.indent = 0;
+          if (token.type === "block-scalar") {
+            token.indent = "indent" in top ? top.indent : 0;
+          } else if (token.type === "flow-collection" && top.type === "document") {
+            token.indent = 0;
           }
-          if (token2.type === "flow-collection")
-            fixFlowSeqItems(token2);
+          if (token.type === "flow-collection")
+            fixFlowSeqItems(token);
           switch (top.type) {
             case "document":
-              top.value = token2;
+              top.value = token;
               break;
             case "block-scalar":
-              top.props.push(token2);
+              top.props.push(token);
               break;
             case "block-map": {
               const it = top.items[top.items.length - 1];
               if (it.value) {
-                top.items.push({ start: [], key: token2, sep: [] });
+                top.items.push({ start: [], key: token, sep: [] });
                 this.onKeyLine = true;
                 return;
               } else if (it.sep) {
-                it.value = token2;
+                it.value = token;
               } else {
-                Object.assign(it, { key: token2, sep: [] });
+                Object.assign(it, { key: token, sep: [] });
                 this.onKeyLine = !it.explicitKey;
                 return;
               }
@@ -6603,34 +6603,34 @@ var require_parser = __commonJS({
             case "block-seq": {
               const it = top.items[top.items.length - 1];
               if (it.value)
-                top.items.push({ start: [], value: token2 });
+                top.items.push({ start: [], value: token });
               else
-                it.value = token2;
+                it.value = token;
               break;
             }
             case "flow-collection": {
               const it = top.items[top.items.length - 1];
               if (!it || it.value)
-                top.items.push({ start: [], key: token2, sep: [] });
+                top.items.push({ start: [], key: token, sep: [] });
               else if (it.sep)
-                it.value = token2;
+                it.value = token;
               else
-                Object.assign(it, { key: token2, sep: [] });
+                Object.assign(it, { key: token, sep: [] });
               return;
             }
             /* istanbul ignore next should not happen */
             default:
               yield* this.pop();
-              yield* this.pop(token2);
+              yield* this.pop(token);
           }
-          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token2.type === "block-map" || token2.type === "block-seq")) {
-            const last = token2.items[token2.items.length - 1];
-            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token2.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token2.indent))) {
+          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
+            const last = token.items[token.items.length - 1];
+            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
               if (top.type === "document")
                 top.end = last.start;
               else
                 top.items.push({ start: last.start });
-              token2.items.splice(-1, 1);
+              token.items.splice(-1, 1);
             }
           }
         }
@@ -7173,7 +7173,7 @@ var require_parser = __commonJS({
             yield* this.pop();
         }
       }
-      *lineEnd(token2) {
+      *lineEnd(token) {
         switch (this.type) {
           case "comma":
           case "doc-start":
@@ -7190,10 +7190,10 @@ var require_parser = __commonJS({
           case "space":
           case "comment":
           default:
-            if (token2.end)
-              token2.end.push(this.sourceToken);
+            if (token.end)
+              token.end.push(this.sourceToken);
             else
-              token2.end = [this.sourceToken];
+              token.end = [this.sourceToken];
             if (this.type === "newline")
               yield* this.pop();
         }
@@ -7355,20 +7355,89 @@ var require_dist = __commonJS({
 // src/action.ts
 var import_node_fs2 = require("fs");
 
-// src/action/comment.ts
+// src/sources/github.ts
+var import_node_child_process = require("child_process");
 var API_BASE = "https://api.github.com";
-var MARKER = "<!-- lockdelta -->";
-function githubHeaders(token2) {
+var cachedToken;
+function resolveToken() {
+  if (cachedToken) return cachedToken;
+  if (process.env.GITHUB_TOKEN) {
+    cachedToken = process.env.GITHUB_TOKEN;
+    return cachedToken;
+  }
+  try {
+    const t = (0, import_node_child_process.execFileSync)("gh", ["auth", "token"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    if (t) {
+      cachedToken = t;
+      return cachedToken;
+    }
+  } catch {
+  }
+  throw new Error("No GitHub token found. Set GITHUB_TOKEN or run `gh auth login`.");
+}
+function headers(accept = "application/vnd.github+json") {
   return {
-    Authorization: `Bearer ${token2}`,
+    Authorization: `Bearer ${resolveToken()}`,
+    Accept: accept,
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+}
+async function ghFileAtSha(sha, path, repo) {
+  const url = `${API_BASE}/repos/${repo}/contents/${path}?ref=${sha}`;
+  const response = await fetch(url, {
+    headers: headers("application/vnd.github.raw+json")
+  });
+  if (!response.ok) return null;
+  return response.text();
+}
+async function ghLsTree(sha, repo) {
+  const url = `${API_BASE}/repos/${repo}/git/trees/${sha}?recursive=1`;
+  const response = await fetch(url, { headers: headers() });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.tree.filter((item) => item.type === "blob").map((item) => item.path);
+}
+async function getPrShas(prNumber, repo) {
+  const url = `${API_BASE}/repos/${repo}/pulls/${prNumber}`;
+  const response = await fetch(url, { headers: headers() });
+  if (!response.ok) {
+    throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
+  }
+  const data = await response.json();
+  return { baseRefOid: data.base.sha, headRefOid: data.head.sha };
+}
+function detectRepo() {
+  const fromEnv = process.env.GITHUB_REPOSITORY;
+  if (fromEnv) return fromEnv;
+  try {
+    const remote = (0, import_node_child_process.execFileSync)("git", ["remote", "get-url", "origin"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    const match = remote.match(/github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/);
+    if (match) return match[1];
+  } catch {
+  }
+  throw new Error("Could not detect GitHub repo \u2014 set GITHUB_REPOSITORY or pass --repo");
+}
+
+// src/action/comment.ts
+var API_BASE2 = "https://api.github.com";
+var MARKER = "<!-- lockdelta -->";
+function githubHeaders(token) {
+  return {
+    Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "Content-Type": "application/json",
     "X-GitHub-Api-Version": "2022-11-28"
   };
 }
-async function findExistingComment(prNumber, repo, token2) {
-  const url = `${API_BASE}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
-  const response = await fetch(url, { headers: githubHeaders(token2) });
+async function findExistingComment(prNumber, repo, token) {
+  const url = `${API_BASE2}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
+  const response = await fetch(url, { headers: githubHeaders(token) });
   if (!response.ok) return null;
   const comments = await response.json();
   const found = comments.find((c) => c.body.includes(MARKER));
@@ -7377,8 +7446,7 @@ async function findExistingComment(prNumber, repo, token2) {
 async function postPrComment(markdown, prNumber, repo) {
   if (!prNumber) throw new Error("post-comment requires a PR number");
   if (!repo) throw new Error("post-comment requires repo to be set");
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) throw new Error("GITHUB_TOKEN is required for post-comment");
+  const t = resolveToken();
   const body = `${MARKER}
 
 ${markdown}`;
@@ -7386,13 +7454,13 @@ ${markdown}`;
   const existing = await findExistingComment(prNumber, repo, t);
   let res;
   if (existing !== null) {
-    res = await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
+    res = await fetch(`${API_BASE2}/repos/${repo}/issues/comments/${existing.id}`, {
       method: "PATCH",
       headers: hdrs,
       body: JSON.stringify({ body })
     });
   } else {
-    res = await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
+    res = await fetch(`${API_BASE2}/repos/${repo}/issues/${prNumber}/comments`, {
       method: "POST",
       headers: hdrs,
       body: JSON.stringify({ body })
@@ -7405,11 +7473,15 @@ ${markdown}`;
 }
 async function hidePrComment(prNumber, repo) {
   if (!prNumber || !repo) return;
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) return;
+  let t;
+  try {
+    t = resolveToken();
+  } catch {
+    return;
+  }
   const existing = await findExistingComment(prNumber, repo, t);
   if (!existing) return;
-  await fetch(`${API_BASE}/graphql`, {
+  await fetch(`${API_BASE2}/graphql`, {
     method: "POST",
     headers: githubHeaders(t),
     body: JSON.stringify({
@@ -8952,10 +9024,10 @@ function buildDiffReport(lockfiles, baseRef, headRef) {
 }
 
 // src/sources/git.ts
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 function gitShow(ref, path) {
   try {
-    const result = (0, import_node_child_process.execFileSync)("git", ["show", `${ref}:${path}`], {
+    const result = (0, import_node_child_process2.execFileSync)("git", ["show", `${ref}:${path}`], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"]
     });
@@ -8966,7 +9038,7 @@ function gitShow(ref, path) {
 }
 function gitLsTree(ref) {
   try {
-    const result = (0, import_node_child_process.execFileSync)("git", ["ls-tree", "-r", "--name-only", ref], {
+    const result = (0, import_node_child_process2.execFileSync)("git", ["ls-tree", "-r", "--name-only", ref], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"]
     });
@@ -8974,60 +9046,6 @@ function gitLsTree(ref) {
   } catch {
     return [];
   }
-}
-
-// src/sources/github.ts
-var import_node_child_process2 = require("child_process");
-var API_BASE2 = "https://api.github.com";
-function token() {
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) throw new Error("GITHUB_TOKEN is required for GitHub API access");
-  return t;
-}
-function headers(accept = "application/vnd.github+json") {
-  return {
-    Authorization: `Bearer ${token()}`,
-    Accept: accept,
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-}
-async function ghFileAtSha(sha, path, repo) {
-  const url = `${API_BASE2}/repos/${repo}/contents/${path}?ref=${sha}`;
-  const response = await fetch(url, {
-    headers: headers("application/vnd.github.raw+json")
-  });
-  if (!response.ok) return null;
-  return response.text();
-}
-async function ghLsTree(sha, repo) {
-  const url = `${API_BASE2}/repos/${repo}/git/trees/${sha}?recursive=1`;
-  const response = await fetch(url, { headers: headers() });
-  if (!response.ok) return [];
-  const data = await response.json();
-  return data.tree.filter((item) => item.type === "blob").map((item) => item.path);
-}
-async function getPrShas(prNumber, repo) {
-  const url = `${API_BASE2}/repos/${repo}/pulls/${prNumber}`;
-  const response = await fetch(url, { headers: headers() });
-  if (!response.ok) {
-    throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
-  }
-  const data = await response.json();
-  return { baseRefOid: data.base.sha, headRefOid: data.head.sha };
-}
-function detectRepo() {
-  const fromEnv = process.env.GITHUB_REPOSITORY;
-  if (fromEnv) return fromEnv;
-  try {
-    const remote = (0, import_node_child_process2.execFileSync)("git", ["remote", "get-url", "origin"], {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"]
-    }).trim();
-    const match = remote.match(/github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/);
-    if (match) return match[1];
-  } catch {
-  }
-  throw new Error("Could not detect GitHub repo \u2014 set GITHUB_REPOSITORY or pass --repo");
 }
 
 // src/sources/local.ts
