@@ -19,9 +19,11 @@ jobs:
           TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
           MAJOR_NUM=$(echo "$VERSION" | cut -d. -f1)
-          echo "tag=$TAG"                >> "$GITHUB_OUTPUT"
-          echo "new_version=$VERSION"    >> "$GITHUB_OUTPUT"
-          echo "major_tag=v${MAJOR_NUM}" >> "$GITHUB_OUTPUT"
+          MINOR_NUM=$(echo "$VERSION" | cut -d. -f2)
+          echo "tag=$TAG"                                    >> "$GITHUB_OUTPUT"
+          echo "new_version=$VERSION"                        >> "$GITHUB_OUTPUT"
+          echo "major_tag=v${MAJOR_NUM}"                     >> "$GITHUB_OUTPUT"
+          echo "minor_tag=v${MAJOR_NUM}.${MINOR_NUM}"        >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v6
         with:
@@ -57,12 +59,14 @@ jobs:
           git commit -m "chore(release): ${{ steps.version.outputs.tag }}"
           git push origin main
 
-      # ── Update floating major tag ────────────────────────────────────────────
-      # Point the major tag (e.g. v0) at the same commit GitHub tagged for the release.
-      - name: Update floating major tag
+      # ── Update floating tags ─────────────────────────────────────────────────
+      # Point the major (e.g. v1) and minor (e.g. v1.2) tags at the release commit.
+      - name: Update floating major and minor tags
         run: |
           git tag ${{ steps.version.outputs.major_tag }} -f ${{ steps.version.outputs.tag }}
+          git tag ${{ steps.version.outputs.minor_tag }} -f ${{ steps.version.outputs.tag }}
           git push origin ${{ steps.version.outputs.major_tag }} --force
+          git push origin ${{ steps.version.outputs.minor_tag }} --force
 
       # ── Publish to npm ──────────────────────────────────────────────────────
       - name: Publish to npm
