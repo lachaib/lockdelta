@@ -9214,6 +9214,8 @@ function detectPushShas() {
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }
+      const changedGroups = Object.entries(filterResults).filter(([, matched]) => matched).map(([name]) => name);
+      setOutput("changed-groups", JSON.stringify(changedGroups));
     }
     const wantsMarkdown = getInput("markdown") === "true";
     const postCommentMode = getInput("post-comment");

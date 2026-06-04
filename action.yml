@@ -84,6 +84,11 @@ outputs:
     description: >
       'true' if at least one dependency changed, 'false' otherwise.
       Useful for conditionally running downstream steps.
+  changed-groups:
+    description: >
+      JSON array of filter group names that had at least one changed package.
+      Only set when the filters or filters-from input is used.
+      Example: '["auth","http-client"]'
   markdown:
     description: >
       Markdown summary of dependency changes (Added/Changed/Removed sections).
