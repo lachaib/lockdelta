@@ -80,6 +80,10 @@ outputs:
     description: >
       JSON diff report. Schema matches DiffReport in the TypeScript types.
       Contains schema_version, generated_at, base_ref, head_ref, summary, and lockfiles[].
+  has-changes:
+    description: >
+      'true' if at least one dependency changed, 'false' otherwise.
+      Useful for conditionally running downstream steps.
   markdown:
     description: >
       Markdown summary of dependency changes (Added/Changed/Removed sections).

@@ -9203,6 +9203,8 @@ function detectPushShas() {
     });
     const json = JSON.stringify(report, null, 2);
     setOutput("diff", json);
+    const hasChanges = report.summary.total_changes > 0;
+    setOutput("has-changes", String(hasChanges));
     const jsonToFile = getInput("json-to-file");
     if (jsonToFile) (0, import_node_fs2.writeFileSync)(jsonToFile, json);
     const filtersInput = getInput("filters");
@@ -9215,7 +9217,6 @@ function detectPushShas() {
     }
     const wantsMarkdown = getInput("markdown") === "true";
     const postCommentMode = getInput("post-comment");
-    const hasChanges = report.summary.total_changes > 0;
     const shouldPost = postCommentMode === "true" || postCommentMode === "if-changed" && hasChanges;
     const shouldHide = postCommentMode === "if-changed" && !hasChanges;
     if (wantsMarkdown || shouldPost) {
