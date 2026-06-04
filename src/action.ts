@@ -95,9 +95,23 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
     if (jsonToFile) writeFileSync(jsonToFile, json);
 
     const filtersInput = getInput('filters');
+    const filtersFromPath = getInput('filters-from');
+    let combinedFilters = '';
+    if (filtersFromPath) {
+      try {
+        combinedFilters = readFileSync(filtersFromPath, 'utf-8');
+      } catch {
+        logError(`filters-from: could not read file '${filtersFromPath}'`);
+        process.exit(1);
+      }
+    }
     if (filtersInput) {
+      combinedFilters = combinedFilters ? `${combinedFilters}\n${filtersInput}` : filtersInput;
+    }
+
+    if (combinedFilters) {
       const allChanges = report.lockfiles.flatMap((lf) => lf.changes);
-      const filterResults = applyFilters(filtersInput, allChanges);
+      const filterResults = applyFilters(combinedFilters, allChanges);
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }

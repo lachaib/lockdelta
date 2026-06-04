@@ -9208,9 +9208,23 @@ function detectPushShas() {
     const jsonToFile = getInput("json-to-file");
     if (jsonToFile) (0, import_node_fs2.writeFileSync)(jsonToFile, json);
     const filtersInput = getInput("filters");
+    const filtersFromPath = getInput("filters-from");
+    let combinedFilters = "";
+    if (filtersFromPath) {
+      try {
+        combinedFilters = (0, import_node_fs2.readFileSync)(filtersFromPath, "utf-8");
+      } catch {
+        logError(`filters-from: could not read file '${filtersFromPath}'`);
+        process.exit(1);
+      }
+    }
     if (filtersInput) {
+      combinedFilters = combinedFilters ? `${combinedFilters}
+${filtersInput}` : filtersInput;
+    }
+    if (combinedFilters) {
       const allChanges = report.lockfiles.flatMap((lf) => lf.changes);
-      const filterResults = applyFilters(filtersInput, allChanges);
+      const filterResults = applyFilters(combinedFilters, allChanges);
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }
