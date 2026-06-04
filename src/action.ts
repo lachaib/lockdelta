@@ -1,6 +1,7 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { parse } from 'yaml';
 import { hidePrComment, postPrComment } from './action/comment.js';
-import { applyFilters } from './action/filters.js';
+import { applyFiltersConfig } from './action/filters.js';
 import { generateMarkdown } from './action/markdown.js';
 import { run } from './index.js';
 
@@ -96,22 +97,39 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
 
     const filtersInput = getInput('filters');
     const filtersFromPath = getInput('filters-from');
-    let combinedFilters = '';
-    if (filtersFromPath) {
-      try {
-        combinedFilters = readFileSync(filtersFromPath, 'utf-8');
-      } catch {
-        logError(`filters-from: could not read file '${filtersFromPath}'`);
-        process.exit(1);
-      }
-    }
-    if (filtersInput) {
-      combinedFilters = combinedFilters ? `${combinedFilters}\n${filtersInput}` : filtersInput;
-    }
 
-    if (combinedFilters) {
+    if (filtersInput || filtersFromPath) {
+      let fileConfig: Record<string, unknown> = {};
+      if (filtersFromPath) {
+        let content: string;
+        try {
+          content = readFileSync(filtersFromPath, 'utf-8');
+        } catch {
+          logError(`filters-from: could not read file '${filtersFromPath}'`);
+          process.exit(1);
+        }
+        try {
+          fileConfig = (parse(content!) as Record<string, unknown>) ?? {};
+        } catch {
+          logError(`filters-from: invalid YAML in '${filtersFromPath}'`);
+          process.exit(1);
+        }
+      }
+
+      let inlineConfig: Record<string, unknown> = {};
+      if (filtersInput) {
+        try {
+          inlineConfig = (parse(filtersInput) as Record<string, unknown>) ?? {};
+        } catch {
+          logError('filters: invalid YAML');
+          process.exit(1);
+        }
+      }
+
+      // Merge: inline wins on key collision
+      const mergedConfig = { ...fileConfig, ...inlineConfig };
       const allChanges = report.lockfiles.flatMap((lf) => lf.changes);
-      const filterResults = applyFilters(combinedFilters, allChanges);
+      const filterResults = applyFiltersConfig(mergedConfig, allChanges);
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }
