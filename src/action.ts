@@ -1,6 +1,7 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { parse } from 'yaml';
 import { hidePrComment, postPrComment } from './action/comment.js';
-import { applyFilters } from './action/filters.js';
+import { applyFiltersConfig } from './action/filters.js';
 import { generateMarkdown } from './action/markdown.js';
 import { run } from './index.js';
 
@@ -88,21 +89,58 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
     const json = JSON.stringify(report, null, 2);
     setOutput('diff', json);
 
+    const hasChanges = report.summary.total_changes > 0;
+    setOutput('has-changes', String(hasChanges));
+
     const jsonToFile = getInput('json-to-file');
     if (jsonToFile) writeFileSync(jsonToFile, json);
 
     const filtersInput = getInput('filters');
-    if (filtersInput) {
+    const filtersFromPath = getInput('filters-from');
+
+    if (filtersInput || filtersFromPath) {
+      let fileConfig: Record<string, unknown> = {};
+      if (filtersFromPath) {
+        let content: string;
+        try {
+          content = readFileSync(filtersFromPath, 'utf-8');
+        } catch {
+          logError(`filters-from: could not read file '${filtersFromPath}'`);
+          process.exit(1);
+        }
+        try {
+          fileConfig = (parse(content!) as Record<string, unknown>) ?? {};
+        } catch {
+          logError(`filters-from: invalid YAML in '${filtersFromPath}'`);
+          process.exit(1);
+        }
+      }
+
+      let inlineConfig: Record<string, unknown> = {};
+      if (filtersInput) {
+        try {
+          inlineConfig = (parse(filtersInput) as Record<string, unknown>) ?? {};
+        } catch {
+          logError('filters: invalid YAML');
+          process.exit(1);
+        }
+      }
+
+      // Merge: inline wins on key collision
+      const mergedConfig = { ...fileConfig, ...inlineConfig };
       const allChanges = report.lockfiles.flatMap((lf) => lf.changes);
-      const filterResults = applyFilters(filtersInput, allChanges);
+      const filterResults = applyFiltersConfig(mergedConfig, allChanges);
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }
+      const changedGroups = Object.entries(filterResults)
+        .filter(([, matched]) => matched)
+        .map(([name]) => name);
+      setOutput('changed-groups', JSON.stringify(changedGroups));
     }
 
     const wantsMarkdown = getInput('markdown') === 'true';
     const postCommentMode = getInput('post-comment'); // 'false' | 'true' | 'if-changed'
-    const hasChanges = report.summary.total_changes > 0;
     const shouldPost =
       postCommentMode === 'true' || (postCommentMode === 'if-changed' && hasChanges);
     const shouldHide = postCommentMode === 'if-changed' && !hasChanges;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters } from '../../src/action/filters.js';
+import { applyFilters, applyFiltersConfig } from '../../src/action/filters.js';
 import type { PackageChange } from '../../src/types.js';
 
 function makeChange(
@@ -68,5 +68,27 @@ describe('applyFilters', () => {
   it('returns false for all groups when there are no changes', () => {
     const result = applyFilters('auth:\n  - pyjwt', []);
     expect(result.auth).toBe(false);
+  });
+});
+
+describe('applyFiltersConfig', () => {
+  it('inline config wins over file config on key collision', () => {
+    const changes = [makeChange('cryptography')];
+    const fileConfig = { auth: ['pyjwt'] };
+    const inlineConfig = { auth: ['cryptography'] };
+    const merged = { ...fileConfig, ...inlineConfig };
+    const result = applyFiltersConfig(merged, changes);
+    // inline definition wins: cryptography matches, pyjwt does not
+    expect(result.auth).toBe(true);
+  });
+
+  it('merges non-colliding groups from both sources', () => {
+    const changes = [makeChange('pyjwt'), makeChange('express')];
+    const fileConfig = { auth: ['pyjwt'] };
+    const inlineConfig = { frontend: ['express'] };
+    const merged = { ...fileConfig, ...inlineConfig };
+    const result = applyFiltersConfig(merged, changes);
+    expect(result.auth).toBe(true);
+    expect(result.frontend).toBe(true);
   });
 });

@@ -40,13 +40,20 @@ inputs:
     description: >
       YAML map of named package groups. Each group produces a boolean output named after
       the group, set to 'true' if any package in the group changed. Inspired by
-      dorny/paths-filter. Example:
+      dorny/paths-filter. May be combined with filters-from; inline definitions take
+      precedence over the file on key collision. Example:
         auth:
           - pyjwt
           - cryptography
         http-client:
           - httpx
           - requests
+    required: false
+  filters-from:
+    description: >
+      Path to a YAML file containing named package group filters (same format as the
+      filters input). Merged with any inline filters; the inline filters input takes
+      precedence on key collision. Inspired by dorny/paths-filter's filters-from.
     required: false
   markdown:
     description: >
@@ -80,6 +87,15 @@ outputs:
     description: >
       JSON diff report. Schema matches DiffReport in the TypeScript types.
       Contains schema_version, generated_at, base_ref, head_ref, summary, and lockfiles[].
+  has-changes:
+    description: >
+      'true' if at least one dependency changed, 'false' otherwise.
+      Useful for conditionally running downstream steps.
+  changed-groups:
+    description: >
+      JSON array of filter group names that had at least one changed package.
+      Only set when the filters or filters-from input is used.
+      Example: '["auth","http-client"]'
   markdown:
     description: >
       Markdown summary of dependency changes (Added/Changed/Removed sections).

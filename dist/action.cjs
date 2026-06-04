@@ -7252,7 +7252,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7293,7 +7293,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports2.parse = parse3;
+    exports2.parse = parse4;
     exports2.parseAllDocuments = parseAllDocuments;
     exports2.parseDocument = parseDocument;
     exports2.stringify = stringify2;
@@ -7354,6 +7354,7 @@ var require_dist = __commonJS({
 
 // src/action.ts
 var import_node_fs2 = require("fs");
+var import_yaml4 = __toESM(require_dist(), 1);
 
 // src/sources/github.ts
 var import_node_child_process = require("child_process");
@@ -7497,15 +7498,7 @@ async function hidePrComment(prNumber, repo) {
 
 // src/action/filters.ts
 var import_yaml = __toESM(require_dist(), 1);
-function applyFilters(filtersYaml, changes) {
-  if (!filtersYaml.trim()) return {};
-  let config;
-  try {
-    config = (0, import_yaml.parse)(filtersYaml);
-  } catch {
-    return {};
-  }
-  if (!config || typeof config !== "object") return {};
+function applyFiltersConfig(config, changes) {
   const changedNames = new Set(changes.map((c) => c.name.toLowerCase()));
   const result = {};
   for (const [groupName, packages] of Object.entries(config)) {
@@ -9203,19 +9196,49 @@ function detectPushShas() {
     });
     const json = JSON.stringify(report, null, 2);
     setOutput("diff", json);
+    const hasChanges = report.summary.total_changes > 0;
+    setOutput("has-changes", String(hasChanges));
     const jsonToFile = getInput("json-to-file");
     if (jsonToFile) (0, import_node_fs2.writeFileSync)(jsonToFile, json);
     const filtersInput = getInput("filters");
-    if (filtersInput) {
+    const filtersFromPath = getInput("filters-from");
+    if (filtersInput || filtersFromPath) {
+      let fileConfig = {};
+      if (filtersFromPath) {
+        let content;
+        try {
+          content = (0, import_node_fs2.readFileSync)(filtersFromPath, "utf-8");
+        } catch {
+          logError(`filters-from: could not read file '${filtersFromPath}'`);
+          process.exit(1);
+        }
+        try {
+          fileConfig = (0, import_yaml4.parse)(content) ?? {};
+        } catch {
+          logError(`filters-from: invalid YAML in '${filtersFromPath}'`);
+          process.exit(1);
+        }
+      }
+      let inlineConfig = {};
+      if (filtersInput) {
+        try {
+          inlineConfig = (0, import_yaml4.parse)(filtersInput) ?? {};
+        } catch {
+          logError("filters: invalid YAML");
+          process.exit(1);
+        }
+      }
+      const mergedConfig = { ...fileConfig, ...inlineConfig };
       const allChanges = report.lockfiles.flatMap((lf) => lf.changes);
-      const filterResults = applyFilters(filtersInput, allChanges);
+      const filterResults = applyFiltersConfig(mergedConfig, allChanges);
       for (const [name, matched] of Object.entries(filterResults)) {
         setOutput(name, String(matched));
       }
+      const changedGroups = Object.entries(filterResults).filter(([, matched]) => matched).map(([name]) => name);
+      setOutput("changed-groups", JSON.stringify(changedGroups));
     }
     const wantsMarkdown = getInput("markdown") === "true";
     const postCommentMode = getInput("post-comment");
-    const hasChanges = report.summary.total_changes > 0;
     const shouldPost = postCommentMode === "true" || postCommentMode === "if-changed" && hasChanges;
     const shouldHide = postCommentMode === "if-changed" && !hasChanges;
     if (wantsMarkdown || shouldPost) {
