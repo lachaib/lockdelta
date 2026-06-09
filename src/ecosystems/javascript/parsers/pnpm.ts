@@ -1,11 +1,21 @@
 import { parse as parseYaml } from 'yaml';
+import type { PackageEntry } from '../../../types.js';
+
+interface PnpmPackageResolution {
+  integrity?: string;
+  tarball?: string;
+}
+
+interface PnpmPackageInfo {
+  resolution?: PnpmPackageResolution;
+}
 
 interface PnpmLock {
   lockfileVersion?: string | number;
   packages?: Record<string, unknown>;
 }
 
-export function parsePnpmLock(content: string): Record<string, string> {
+export function parsePnpmLock(content: string): Record<string, PackageEntry> {
   const data = parseYaml(content) as PnpmLock;
   if (!data?.packages) return {};
 
@@ -23,10 +33,10 @@ function parseLockfileVersion(v: string | number | undefined): number {
   return 0;
 }
 
-function parsePnpmV9(packages: Record<string, unknown>): Record<string, string> {
-  const result: Record<string, string> = {};
+function parsePnpmV9(packages: Record<string, unknown>): Record<string, PackageEntry> {
+  const result: Record<string, PackageEntry> = {};
 
-  for (const key of Object.keys(packages)) {
+  for (const [key, value] of Object.entries(packages)) {
     let name: string;
     let version: string;
 
@@ -44,17 +54,23 @@ function parsePnpmV9(packages: Record<string, unknown>): Record<string, string> 
 
     version = stripVersionSuffix(version);
     if (name && version && !result[name]) {
-      result[name] = version;
+      const entry: PackageEntry = { version };
+      const pkg = value as PnpmPackageInfo | null;
+      const registryUrl = pkg?.resolution?.tarball
+        ? resolvedToOrigin(pkg.resolution.tarball)
+        : undefined;
+      if (registryUrl !== undefined) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
 
   return result;
 }
 
-function parsePnpmLegacy(packages: Record<string, unknown>): Record<string, string> {
-  const result: Record<string, string> = {};
+function parsePnpmLegacy(packages: Record<string, unknown>): Record<string, PackageEntry> {
+  const result: Record<string, PackageEntry> = {};
 
-  for (const key of Object.keys(packages)) {
+  for (const [key, value] of Object.entries(packages)) {
     const cleaned = key.startsWith('/') ? key.slice(1) : key;
 
     let name: string;
@@ -95,7 +111,13 @@ function parsePnpmLegacy(packages: Record<string, unknown>): Record<string, stri
 
     version = stripVersionSuffix(version);
     if (name && version && !result[name]) {
-      result[name] = version;
+      const entry: PackageEntry = { version };
+      const pkg = value as PnpmPackageInfo | null;
+      const registryUrl = pkg?.resolution?.tarball
+        ? resolvedToOrigin(pkg.resolution.tarball)
+        : undefined;
+      if (registryUrl !== undefined) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
 
@@ -105,4 +127,12 @@ function parsePnpmLegacy(packages: Record<string, unknown>): Record<string, stri
 // Remove peer dep hash suffixes: "1.2.3_abc123" or "1.2.3(peer@1.0)" → "1.2.3"
 function stripVersionSuffix(version: string): string {
   return version.split('(')[0].split('_')[0].trim();
+}
+
+function resolvedToOrigin(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
 }

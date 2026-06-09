@@ -12,17 +12,17 @@ const fixture = (name: string) =>
 describe('pdm.lock parser', () => {
   it('parses packages from base lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-base.lock'));
-    expect(pkgs.fastapi).toBe('0.110.0');
-    expect(pkgs.pydantic).toBe('2.6.4');
-    expect(pkgs.starlette).toBe('0.36.3');
-    expect(pkgs.uvicorn).toBe('0.29.0');
+    expect(pkgs.fastapi?.version).toBe('0.110.0');
+    expect(pkgs.pydantic?.version).toBe('2.6.4');
+    expect(pkgs.starlette?.version).toBe('0.36.3');
+    expect(pkgs.uvicorn?.version).toBe('0.29.0');
     expect(Object.keys(pkgs)).toHaveLength(4);
   });
 
   it('parses packages from head lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-head.lock'));
-    expect(pkgs.fastapi).toBe('0.111.0');
-    expect(pkgs['pydantic-settings']).toBe('2.2.1');
+    expect(pkgs.fastapi?.version).toBe('0.111.0');
+    expect(pkgs['pydantic-settings']?.version).toBe('2.2.1');
     expect(Object.keys(pkgs)).toHaveLength(5);
   });
 

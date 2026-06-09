@@ -1,11 +1,13 @@
+import type { PackageEntry } from '../../../types.js';
+
 interface BunLock {
   lockfileVersion?: number;
   packages?: Record<string, unknown[]>;
 }
 
-export function parseBunLock(content: string): Record<string, string> {
+export function parseBunLock(content: string): Record<string, PackageEntry> {
   const data = JSON.parse(content) as BunLock;
-  const result: Record<string, string> = {};
+  const result: Record<string, PackageEntry> = {};
 
   for (const [name, entry] of Object.entries(data.packages ?? {})) {
     if (!Array.isArray(entry)) continue;
@@ -15,7 +17,7 @@ export function parseBunLock(content: string): Record<string, string> {
     const version = extractVersion(nameAtVersion);
     if (!version || version.startsWith('workspace:')) continue;
 
-    result[name] = version;
+    result[name] = { version };
   }
 
   return result;

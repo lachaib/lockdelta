@@ -20,7 +20,7 @@ export const pythonEcosystem: Ecosystem = {
     return lockfileTypeMap.get(filename);
   },
 
-  parseLockfile(content: string, _lockfileType: string): Record<string, string> {
+  parseLockfile(content: string, _lockfileType: string) {
     return parseTomlPackages(content);
   },
 

@@ -23,7 +23,7 @@ export const javascriptEcosystem: Ecosystem = {
     return lockfileTypeMap.get(filename);
   },
 
-  parseLockfile(content: string, lockfileType: string): Record<string, string> {
+  parseLockfile(content: string, lockfileType: string) {
     switch (lockfileType) {
       case 'npm':
         return parseNpmLock(content);

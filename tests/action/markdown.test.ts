@@ -176,6 +176,88 @@ describe('generateMarkdown', () => {
     expect(md).toContain('[@babel/core](https://www.npmjs.com/package/%40babel%2Fcore)');
   });
 
+  it('omits link for private python registry packages', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'internal-pkg',
+        change_type: 'updated',
+        old_version: '1.0.0',
+        new_version: '1.1.0',
+        is_direct: false,
+        is_dev: false,
+        new_registry_url: 'https://private.example.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'python'));
+    expect(md).toContain('internal-pkg');
+    expect(md).not.toContain('](');
+  });
+
+  it('omits link for unknown private npm registry packages', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'internal-lib',
+        change_type: 'added',
+        old_version: null,
+        new_version: '2.0.0',
+        is_direct: false,
+        is_dev: false,
+        new_registry_url: 'https://verdaccio.company.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'javascript'));
+    expect(md).toContain('internal-lib');
+    expect(md).not.toContain('](');
+  });
+
+  it('links GitHub Packages scoped packages to github.com', () => {
+    const changes: PackageChange[] = [
+      {
+        name: '@myorg/private-pkg',
+        change_type: 'updated',
+        old_version: '1.0.0',
+        new_version: '2.0.0',
+        is_direct: false,
+        is_dev: false,
+        new_registry_url: 'https://npm.pkg.github.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'javascript'));
+    expect(md).toContain('[@myorg/private-pkg](https://github.com/myorg/private-pkg)');
+  });
+
+  it('still links public npm packages when registry_url is the npm registry origin', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'express',
+        change_type: 'updated',
+        old_version: '4.18.2',
+        new_version: '4.19.2',
+        is_direct: false,
+        is_dev: false,
+        new_registry_url: 'https://registry.npmjs.org',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'javascript'));
+    expect(md).toContain('[express](https://www.npmjs.com/package/express)');
+  });
+
+  it('still links public python packages when registry_url is pypi.org origin', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'requests',
+        change_type: 'updated',
+        old_version: '2.31.0',
+        new_version: '2.32.3',
+        is_direct: false,
+        is_dev: false,
+        new_registry_url: 'https://pypi.org',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'python'));
+    expect(md).toContain('[requests](https://pypi.org/project/requests/)');
+  });
+
   it('links deno jsr packages to jsr.io', () => {
     const changes: PackageChange[] = [
       {

@@ -7511,7 +7511,31 @@ function applyFiltersConfig(config, changes) {
 }
 
 // src/action/markdown.ts
-function packageUrl(ecosystem, name) {
+var PUBLIC_NPM_ORIGINS = /* @__PURE__ */ new Set(["https://registry.npmjs.org", "https://registry.yarnpkg.com"]);
+var PUBLIC_PYPI_ORIGIN = "https://pypi.org";
+function packageUrl(ecosystem, name, registryUrl) {
+  if (registryUrl !== void 0) {
+    let origin;
+    try {
+      origin = new URL(registryUrl).origin;
+    } catch {
+      return null;
+    }
+    const isNpmLike = ecosystem === "javascript" || ecosystem === "deno" && !name.startsWith("jsr:");
+    if (isNpmLike) {
+      if (!PUBLIC_NPM_ORIGINS.has(origin)) {
+        if (origin === "https://npm.pkg.github.com" && name.startsWith("@")) {
+          const parts = name.slice(1).split("/");
+          if (parts.length === 2) return `https://github.com/${parts[0]}/${parts[1]}`;
+        }
+        return null;
+      }
+    } else if (ecosystem === "python") {
+      if (!origin.startsWith(PUBLIC_PYPI_ORIGIN)) {
+        return null;
+      }
+    }
+  }
   switch (ecosystem) {
     case "python":
       return `https://pypi.org/project/${name}/`;
@@ -7525,7 +7549,11 @@ function packageUrl(ecosystem, name) {
   }
 }
 function formatName(change, ecosystem) {
-  const url = packageUrl(ecosystem, change.name);
+  const url = packageUrl(
+    ecosystem,
+    change.name,
+    change.new_registry_url ?? change.old_registry_url
+  );
   const linked = url ? `[${change.name}](${url})` : change.name;
   if (change.is_direct && !change.is_dev) return `**${linked}**`;
   if (change.is_dev) return `*${linked}*`;
@@ -7620,7 +7648,7 @@ function parseDenoLock(content) {
       const { name, version } = splitSpecifier(specifier);
       const resultKey = key === "jsr" ? `jsr:${name}` : name;
       if (name && version && !result[resultKey]) {
-        result[resultKey] = version;
+        result[resultKey] = { version };
       }
     }
   }
@@ -7699,7 +7727,7 @@ function parseBunLock(content) {
     if (typeof nameAtVersion !== "string") continue;
     const version = extractVersion(nameAtVersion);
     if (!version || version.startsWith("workspace:")) continue;
-    result[name] = version;
+    result[name] = { version };
   }
   return result;
 }
@@ -7734,7 +7762,10 @@ function parseV2Packages(packages) {
     const name = key.slice("node_modules/".length);
     const pkgVersion = pkg.version;
     if (pkgVersion && !result[name]) {
-      result[name] = pkgVersion;
+      const entry = { version: pkgVersion };
+      const registryUrl = resolvedToOrigin(pkg.resolved);
+      if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
   return result;
@@ -7742,13 +7773,24 @@ function parseV2Packages(packages) {
 function parseV1Dependencies(deps, result = {}) {
   for (const [name, pkg] of Object.entries(deps)) {
     if (pkg.version && !result[name]) {
-      result[name] = pkg.version;
+      const entry = { version: pkg.version };
+      const registryUrl = resolvedToOrigin(pkg.resolved);
+      if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
     if (pkg.dependencies) {
       parseV1Dependencies(pkg.dependencies, result);
     }
   }
   return result;
+}
+function resolvedToOrigin(resolved) {
+  if (!resolved) return void 0;
+  try {
+    return new URL(resolved).origin;
+  } catch {
+    return void 0;
+  }
 }
 
 // src/ecosystems/javascript/parsers/pnpm.ts
@@ -7769,7 +7811,7 @@ function parseLockfileVersion(v) {
 }
 function parsePnpmV9(packages) {
   const result = {};
-  for (const key of Object.keys(packages)) {
+  for (const [key, value] of Object.entries(packages)) {
     let name;
     let version;
     if (key.startsWith("@")) {
@@ -7785,14 +7827,18 @@ function parsePnpmV9(packages) {
     }
     version = stripVersionSuffix(version);
     if (name && version && !result[name]) {
-      result[name] = version;
+      const entry = { version };
+      const pkg = value;
+      const registryUrl = pkg?.resolution?.tarball ? resolvedToOrigin2(pkg.resolution.tarball) : void 0;
+      if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
   return result;
 }
 function parsePnpmLegacy(packages) {
   const result = {};
-  for (const key of Object.keys(packages)) {
+  for (const [key, value] of Object.entries(packages)) {
     const cleaned = key.startsWith("/") ? key.slice(1) : key;
     let name;
     let version;
@@ -7823,13 +7869,24 @@ function parsePnpmLegacy(packages) {
     }
     version = stripVersionSuffix(version);
     if (name && version && !result[name]) {
-      result[name] = version;
+      const entry = { version };
+      const pkg = value;
+      const registryUrl = pkg?.resolution?.tarball ? resolvedToOrigin2(pkg.resolution.tarball) : void 0;
+      if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
   return result;
 }
 function stripVersionSuffix(version) {
   return version.split("(")[0].split("_")[0].trim();
+}
+function resolvedToOrigin2(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return void 0;
+  }
 }
 
 // src/ecosystems/javascript/parsers/yarn.ts
@@ -7861,7 +7918,13 @@ function parseYarnV1(content) {
     const firstSpecifier = headerLine.split(",")[0].trim().replace(/^"|"$/g, "");
     const name = extractNameFromSpecifier(firstSpecifier);
     if (name && !packages[name]) {
-      packages[name] = versionMatch[1];
+      const entry = { version: versionMatch[1] };
+      const resolvedMatch = trimmed.match(/^[ \t]+resolved "([^"]+)"/m);
+      if (resolvedMatch) {
+        const registryUrl = resolvedToOrigin3(resolvedMatch[1]);
+        if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      }
+      packages[name] = entry;
     }
   }
   return packages;
@@ -7872,13 +7935,16 @@ function parseYarnBerry(content) {
   for (const [key, value] of Object.entries(data)) {
     if (key === "__metadata") continue;
     if (typeof value !== "object" || !value) continue;
-    const entry = value;
-    if (entry.linkType === "soft") continue;
-    if (!entry.version) continue;
+    const berryEntry = value;
+    if (berryEntry.linkType === "soft") continue;
+    if (!berryEntry.version) continue;
     const cleanKey = key.replace(/^"|"$/g, "");
     const name = extractNameFromBerryKey(cleanKey);
     if (name && !packages[name]) {
-      packages[name] = entry.version;
+      const entry = { version: berryEntry.version };
+      const registryUrl = extractBerryRegistryOrigin(berryEntry.resolution);
+      if (registryUrl !== void 0) entry.registryUrl = registryUrl;
+      packages[name] = entry;
     }
   }
   return packages;
@@ -7889,6 +7955,23 @@ function extractNameFromBerryKey(key) {
     return idx > 0 ? key.slice(0, idx) : key;
   }
   return key.split("@")[0];
+}
+function extractBerryRegistryOrigin(resolution) {
+  if (!resolution) return void 0;
+  const atIdx = resolution.startsWith("@") ? resolution.indexOf("@", 1) : resolution.indexOf("@");
+  if (atIdx < 0) return void 0;
+  const spec = resolution.slice(atIdx + 1);
+  if (spec.startsWith("http://") || spec.startsWith("https://")) {
+    return resolvedToOrigin3(spec.split("#")[0]);
+  }
+  return void 0;
+}
+function resolvedToOrigin3(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return void 0;
+  }
 }
 
 // src/ecosystems/javascript/index.ts
@@ -8625,7 +8708,15 @@ function parseTomlPackages(content) {
     const packages = {};
     for (const pkg of [...data.package ?? [], ...data.packages ?? []]) {
       if (typeof pkg.name === "string" && typeof pkg.version === "string") {
-        packages[pkg.name] = pkg.version;
+        const entry = { version: pkg.version };
+        const sourceUrl = typeof pkg.source?.registry === "string" ? pkg.source.registry : typeof pkg.source?.url === "string" ? pkg.source.url : void 0;
+        if (sourceUrl !== void 0) {
+          try {
+            entry.registryUrl = new URL(sourceUrl).origin;
+          } catch {
+          }
+        }
+        packages[pkg.name] = entry;
       }
     }
     return packages;
@@ -8640,7 +8731,17 @@ function parseTomlPackagesRegex(content) {
     const nameMatch = block.match(/\nname\s*=\s*"([^"]+)"/);
     const versionMatch = block.match(/\nversion\s*=\s*"([^"]+)"/);
     if (nameMatch && versionMatch) {
-      packages[nameMatch[1]] = versionMatch[1];
+      const entry = { version: versionMatch[1] };
+      const sourceRegistryMatch = block.match(/source\s*=\s*\{[^}]*registry\s*=\s*"([^"]+)"/);
+      const sourceUrlMatch = block.match(/\nurl\s*=\s*"([^"]+)"/);
+      const sourceUrl = sourceRegistryMatch?.[1] ?? sourceUrlMatch?.[1];
+      if (sourceUrl !== void 0) {
+        try {
+          entry.registryUrl = new URL(sourceUrl).origin;
+        } catch {
+        }
+      }
+      packages[nameMatch[1]] = entry;
     }
   }
   return packages;
@@ -8790,18 +8891,23 @@ function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
   for (const name of [...allNames].sort()) {
     const inOld = name in oldPkgs;
     const inNew = name in newPkgs;
-    if (inOld && inNew && oldPkgs[name] === newPkgs[name]) continue;
+    if (inOld && inNew && oldPkgs[name].version === newPkgs[name].version) continue;
     const normalized = normalizeName(name);
     const isProd = directDeps.prod.has(normalized);
     const isDev = directDeps.dev.has(normalized) && !isProd;
-    changes.push({
+    const change = {
       name,
       change_type: !inOld ? "added" : !inNew ? "removed" : "updated",
-      old_version: inOld ? oldPkgs[name] : null,
-      new_version: inNew ? newPkgs[name] : null,
+      old_version: inOld ? oldPkgs[name].version : null,
+      new_version: inNew ? newPkgs[name].version : null,
       is_direct: isProd || isDev,
       is_dev: isDev
-    });
+    };
+    const oldRegistryUrl = inOld ? oldPkgs[name].registryUrl : void 0;
+    const newRegistryUrl = inNew ? newPkgs[name].registryUrl : void 0;
+    if (oldRegistryUrl !== void 0) change.old_registry_url = oldRegistryUrl;
+    if (newRegistryUrl !== void 0) change.new_registry_url = newRegistryUrl;
+    changes.push(change);
   }
   return changes;
 }
