@@ -2,7 +2,7 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { hidePrComment, postPrComment } from './action/comment.js';
 import { applyFiltersConfig } from './action/filters.js';
-import { generateMarkdown } from './action/markdown.js';
+import { generateMarkdown, type RegistryMap } from './action/markdown.js';
 import { run } from './index.js';
 
 function getInput(name: string): string {
@@ -145,8 +145,30 @@ function detectPushShas(): { baseSha: string; headSha: string } | null {
       postCommentMode === 'true' || (postCommentMode === 'if-changed' && hasChanges);
     const shouldHide = postCommentMode === 'if-changed' && !hasChanges;
 
+    let registryMap: RegistryMap | undefined;
+    const registryMapInput = getInput('registry-map');
+    if (registryMapInput) {
+      let parsed: unknown;
+      try {
+        parsed = parse(registryMapInput);
+      } catch {
+        logError('registry-map: invalid YAML');
+        process.exit(1);
+      }
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed) ||
+        !Object.values(parsed).every((v) => typeof v === 'string')
+      ) {
+        logError('registry-map: must be a YAML map of string keys to string URL templates');
+        process.exit(1);
+      }
+      registryMap = parsed as RegistryMap;
+    }
+
     if (wantsMarkdown || shouldPost) {
-      const md = generateMarkdown(report);
+      const md = generateMarkdown(report, registryMap);
 
       if (wantsMarkdown) {
         setOutput('markdown', md);

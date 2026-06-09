@@ -61,6 +61,7 @@ No inputs are required on `pull_request` or `push` events. The action reads the 
 | `json-to-file` | File path to write the JSON report to. | — |
 | `markdown-to-file` | File path to write the markdown summary to. Requires `markdown: 'true'`. | — |
 | `post-comment` | `'true'` always posts/updates a comment. `'if-changed'` posts only when at least one dependency changed. `'false'` never posts. Requires `pull-requests: write`. | `false` |
+| `registry-map` | YAML map of package name prefixes to URL templates, used to override the default registry link in the markdown summary. Useful for private registries (e.g. GitHub Packages). See [Private registries](#private-registries). | — |
 
 ### Outputs
 
@@ -99,6 +100,53 @@ Example output:
 ### Added
 
 - **[httpx](https://pypi.org/project/httpx/)**: `0.27.0`
+```
+
+### Private registries
+
+By default, JavaScript package names in the markdown summary link to [npmjs.com](https://www.npmjs.com). If your project uses packages from a private registry (e.g. [GitHub Packages](https://docs.github.com/en/packages)), use `registry-map` to override the URL for specific package scopes.
+
+Each entry maps a **package name prefix** to a **URL template**. The first matching prefix wins. Packages that don't match any prefix fall back to the default registry link.
+
+**URL template placeholders:**
+
+| Placeholder | Example (`@myorg/my-pkg`) |
+|-------------|--------------------------|
+| `{name}` | `@myorg/my-pkg` |
+| `{package}` | `my-pkg` (without scope) |
+| `{scope}` | `myorg` (without `@`) |
+
+**GitHub Packages example:**
+
+```yaml
+- name: Diff dependencies
+  id: lockdelta
+  uses: lachaib/lockdelta@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  with:
+    markdown: 'true'
+    post-comment: 'if-changed'
+    registry-map: |
+      "@myorg/": "https://github.com/orgs/MyOrg/packages?q={package}&visibility=all"
+```
+
+A package named `@myorg/api-client` will link to `https://github.com/orgs/MyOrg/packages?q=api-client&visibility=all` instead of npmjs.com.
+
+You can map multiple scopes or prefixes at once:
+
+```yaml
+- name: Diff dependencies
+  id: lockdelta
+  uses: lachaib/lockdelta@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  with:
+    markdown: 'true'
+    post-comment: 'if-changed'
+    registry-map: |
+      "@myorg/": "https://github.com/orgs/MyOrg/packages?q={package}&visibility=all"
+      "@internal/": "https://registry.example.com/packages/{package}"
 ```
 
 ### Filters

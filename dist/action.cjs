@@ -7511,7 +7511,17 @@ function applyFiltersConfig(config, changes) {
 }
 
 // src/action/markdown.ts
-function packageUrl(ecosystem, name) {
+function packageUrl(ecosystem, name, registryMap) {
+  if (registryMap) {
+    for (const [prefix, template] of Object.entries(registryMap)) {
+      if (name.startsWith(prefix)) {
+        const slashIdx = name.indexOf("/");
+        const packageWithoutScope = slashIdx !== -1 ? name.slice(slashIdx + 1) : name;
+        const scope = name.startsWith("@") && slashIdx !== -1 ? name.slice(1, slashIdx) : "";
+        return template.replaceAll("{name}", name).replaceAll("{package}", packageWithoutScope).replaceAll("{scope}", scope);
+      }
+    }
+  }
   switch (ecosystem) {
     case "python":
       return `https://pypi.org/project/${name}/`;
@@ -7524,15 +7534,15 @@ function packageUrl(ecosystem, name) {
       return null;
   }
 }
-function formatName(change, ecosystem) {
-  const url = packageUrl(ecosystem, change.name);
+function formatName(change, ecosystem, registryMap) {
+  const url = packageUrl(ecosystem, change.name, registryMap);
   const linked = url ? `[${change.name}](${url})` : change.name;
   if (change.is_direct && !change.is_dev) return `**${linked}**`;
   if (change.is_dev) return `*${linked}*`;
   return linked;
 }
-function formatLine(change, ecosystem) {
-  const name = formatName(change, ecosystem);
+function formatLine(change, ecosystem, registryMap) {
+  const name = formatName(change, ecosystem, registryMap);
   if (change.change_type === "updated") {
     return `- ${name}: \`${change.old_version}\` \u2192 \`${change.new_version}\``;
   }
@@ -7541,7 +7551,7 @@ function formatLine(change, ecosystem) {
   }
   return `- ${name}: \`${change.old_version}\``;
 }
-function generateMarkdown(report) {
+function generateMarkdown(report, registryMap) {
   const added = [];
   const updated = [];
   const removed = [];
@@ -7553,7 +7563,7 @@ function generateMarkdown(report) {
       else removed.push(entry);
     }
   }
-  const fmt = ({ change, ecosystem }) => formatLine(change, ecosystem);
+  const fmt = ({ change, ecosystem }) => formatLine(change, ecosystem, registryMap);
   const sections = [];
   if (added.length > 0) sections.push(`### Added
 
@@ -9241,8 +9251,24 @@ function detectPushShas() {
     const postCommentMode = getInput("post-comment");
     const shouldPost = postCommentMode === "true" || postCommentMode === "if-changed" && hasChanges;
     const shouldHide = postCommentMode === "if-changed" && !hasChanges;
+    let registryMap;
+    const registryMapInput = getInput("registry-map");
+    if (registryMapInput) {
+      let parsed;
+      try {
+        parsed = (0, import_yaml4.parse)(registryMapInput);
+      } catch {
+        logError("registry-map: invalid YAML");
+        process.exit(1);
+      }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || !Object.values(parsed).every((v) => typeof v === "string")) {
+        logError("registry-map: must be a YAML map of string keys to string URL templates");
+        process.exit(1);
+      }
+      registryMap = parsed;
+    }
     if (wantsMarkdown || shouldPost) {
-      const md = generateMarkdown(report);
+      const md = generateMarkdown(report, registryMap);
       if (wantsMarkdown) {
         setOutput("markdown", md);
         const markdownToFile = getInput("markdown-to-file");

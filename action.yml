@@ -81,6 +81,18 @@ inputs:
       generated even if markdown: 'false'.
     required: false
     default: 'false'
+  registry-map:
+    description: >
+      YAML map of package name prefixes to URL templates, used to override the
+      default registry link in the markdown summary. Useful for private registries
+      such as GitHub Packages. Each key is a package name prefix (e.g. "@myorg/")
+      and each value is a URL template that may contain the following placeholders:
+        {name}    — full package name (e.g. @myorg/my-pkg)
+        {package} — name without scope (e.g. my-pkg)
+        {scope}   — scope without @ (e.g. myorg)
+      Example:
+        "@myorg/": "https://github.com/orgs/MyOrg/packages?q={package}&visibility=all"
+    required: false
 
 outputs:
   diff:

@@ -1,6 +1,22 @@
 import type { DiffReport, PackageChange } from '../types.js';
 
-function packageUrl(ecosystem: string, name: string): string | null {
+export type RegistryMap = Record<string, string>;
+
+function packageUrl(ecosystem: string, name: string, registryMap?: RegistryMap): string | null {
+  if (registryMap) {
+    for (const [prefix, template] of Object.entries(registryMap)) {
+      if (name.startsWith(prefix)) {
+        const slashIdx = name.indexOf('/');
+        const packageWithoutScope = slashIdx !== -1 ? name.slice(slashIdx + 1) : name;
+        const scope = name.startsWith('@') && slashIdx !== -1 ? name.slice(1, slashIdx) : '';
+        return template
+          .replaceAll('{name}', name)
+          .replaceAll('{package}', packageWithoutScope)
+          .replaceAll('{scope}', scope);
+      }
+    }
+  }
+
   switch (ecosystem) {
     case 'python':
       return `https://pypi.org/project/${name}/`;
@@ -14,16 +30,16 @@ function packageUrl(ecosystem: string, name: string): string | null {
   }
 }
 
-function formatName(change: PackageChange, ecosystem: string): string {
-  const url = packageUrl(ecosystem, change.name);
+function formatName(change: PackageChange, ecosystem: string, registryMap?: RegistryMap): string {
+  const url = packageUrl(ecosystem, change.name, registryMap);
   const linked = url ? `[${change.name}](${url})` : change.name;
   if (change.is_direct && !change.is_dev) return `**${linked}**`;
   if (change.is_dev) return `*${linked}*`;
   return linked;
 }
 
-function formatLine(change: PackageChange, ecosystem: string): string {
-  const name = formatName(change, ecosystem);
+function formatLine(change: PackageChange, ecosystem: string, registryMap?: RegistryMap): string {
+  const name = formatName(change, ecosystem, registryMap);
   if (change.change_type === 'updated') {
     return `- ${name}: \`${change.old_version}\` → \`${change.new_version}\``;
   }
@@ -33,7 +49,7 @@ function formatLine(change: PackageChange, ecosystem: string): string {
   return `- ${name}: \`${change.old_version}\``;
 }
 
-export function generateMarkdown(report: DiffReport): string {
+export function generateMarkdown(report: DiffReport, registryMap?: RegistryMap): string {
   const added: Array<{ change: PackageChange; ecosystem: string }> = [];
   const updated: Array<{ change: PackageChange; ecosystem: string }> = [];
   const removed: Array<{ change: PackageChange; ecosystem: string }> = [];
@@ -48,7 +64,7 @@ export function generateMarkdown(report: DiffReport): string {
   }
 
   const fmt = ({ change, ecosystem }: { change: PackageChange; ecosystem: string }) =>
-    formatLine(change, ecosystem);
+    formatLine(change, ecosystem, registryMap);
 
   const sections: string[] = [];
   if (added.length > 0) sections.push(`### Added\n\n${added.map(fmt).join('\n')}`);
