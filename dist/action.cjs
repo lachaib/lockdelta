@@ -7526,7 +7526,8 @@ function packageUrl(ecosystem, name, registryUrl) {
       if (!PUBLIC_NPM_ORIGINS.has(origin)) {
         if (origin === "https://npm.pkg.github.com" && name.startsWith("@")) {
           const parts = name.slice(1).split("/");
-          if (parts.length === 2) return `https://github.com/${parts[0]}/${parts[1]}`;
+          if (parts.length === 2)
+            return `https://github.com/orgs/${parts[0]}/packages/npm/package/${parts[1]}`;
         }
         return null;
       }
