@@ -223,7 +223,9 @@ describe('generateMarkdown', () => {
       },
     ];
     const md = generateMarkdown(makeReport(changes, 'javascript'));
-    expect(md).toContain('[@myorg/private-pkg](https://github.com/myorg/private-pkg)');
+    expect(md).toContain(
+      '[@myorg/private-pkg](https://github.com/orgs/myorg/packages/npm/package/private-pkg)',
+    );
   });
 
   it('still links public npm packages when registry_url is the npm registry origin', () => {

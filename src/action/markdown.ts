@@ -19,7 +19,8 @@ function packageUrl(ecosystem: string, name: string, registryUrl?: string): stri
         // GitHub Packages scoped packages link to their GitHub repo page
         if (origin === 'https://npm.pkg.github.com' && name.startsWith('@')) {
           const parts = name.slice(1).split('/');
-          if (parts.length === 2) return `https://github.com/${parts[0]}/${parts[1]}`;
+          if (parts.length === 2)
+            return `https://github.com/orgs/${parts[0]}/packages/npm/package/${parts[1]}`;
         }
         return null;
       }
