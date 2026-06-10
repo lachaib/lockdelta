@@ -1,38 +1,28 @@
+import { getOctokit } from '@actions/github';
 import { resolveToken } from '../sources/github.js';
 
-const API_BASE = 'https://api.github.com';
 const MARKER = '<!-- lockdelta -->';
 
-interface GitHubComment {
-  id: number;
-  node_id: string;
-  body: string;
-}
+type Octokit = ReturnType<typeof getOctokit>;
 
-interface ExistingComment {
-  id: number;
-  nodeId: string;
-}
-
-function githubHeaders(token: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github+json',
-    'Content-Type': 'application/json',
-    'X-GitHub-Api-Version': '2022-11-28',
-  };
+function splitRepo(repo: string): { owner: string; repoName: string } {
+  const [owner, repoName] = repo.split('/');
+  return { owner, repoName };
 }
 
 async function findExistingComment(
-  prNumber: string,
-  repo: string,
-  token: string,
-): Promise<ExistingComment | null> {
-  const url = `${API_BASE}/repos/${repo}/issues/${prNumber}/comments?per_page=100`;
-  const response = await fetch(url, { headers: githubHeaders(token) });
-  if (!response.ok) return null;
-  const comments = (await response.json()) as GitHubComment[];
-  const found = comments.find((c) => c.body.includes(MARKER));
+  prNumber: number,
+  owner: string,
+  repoName: string,
+  octokit: Octokit,
+): Promise<{ id: number; nodeId: string } | null> {
+  const { data: comments } = await octokit.rest.issues.listComments({
+    owner,
+    repo: repoName,
+    issue_number: prNumber,
+    per_page: 100,
+  });
+  const found = comments.find((c) => c.body?.includes(MARKER));
   return found ? { id: found.id, nodeId: found.node_id } : null;
 }
 
@@ -44,56 +34,51 @@ export async function postPrComment(
   if (!prNumber) throw new Error('post-comment requires a PR number');
   if (!repo) throw new Error('post-comment requires repo to be set');
 
-  const t = resolveToken();
+  const octokit = getOctokit(resolveToken());
+  const { owner, repoName } = splitRepo(repo);
   const body = `${MARKER}\n\n${markdown}`;
-  const hdrs = githubHeaders(t);
+  const prNum = Number(prNumber);
 
-  const existing = await findExistingComment(prNumber, repo, t);
+  const existing = await findExistingComment(prNum, owner, repoName, octokit);
 
-  let res: Response;
   if (existing !== null) {
-    res = await fetch(`${API_BASE}/repos/${repo}/issues/comments/${existing.id}`, {
-      method: 'PATCH',
-      headers: hdrs,
-      body: JSON.stringify({ body }),
+    await octokit.rest.issues.updateComment({
+      owner,
+      repo: repoName,
+      comment_id: existing.id,
+      body,
     });
   } else {
-    res = await fetch(`${API_BASE}/repos/${repo}/issues/${prNumber}/comments`, {
-      method: 'POST',
-      headers: hdrs,
-      body: JSON.stringify({ body }),
+    await octokit.rest.issues.createComment({
+      owner,
+      repo: repoName,
+      issue_number: prNum,
+      body,
     });
-  }
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Failed to post PR comment (${res.status}): ${text}`);
   }
 }
 
 export async function hidePrComment(prNumber: string, repo?: string): Promise<void> {
   if (!prNumber || !repo) return;
 
-  let t: string;
+  let token: string;
   try {
-    t = resolveToken();
+    token = resolveToken();
   } catch {
     return;
   }
 
-  const existing = await findExistingComment(prNumber, repo, t);
+  const octokit = getOctokit(token);
+  const { owner, repoName } = splitRepo(repo);
+  const existing = await findExistingComment(Number(prNumber), owner, repoName, octokit);
   if (!existing) return;
 
-  await fetch(`${API_BASE}/graphql`, {
-    method: 'POST',
-    headers: githubHeaders(t),
-    body: JSON.stringify({
-      query: `mutation MinimizeComment($id: ID!) {
-        minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
-          minimizedComment { isMinimized }
-        }
-      }`,
-      variables: { id: existing.nodeId },
-    }),
-  });
+  await octokit.graphql(
+    `mutation MinimizeComment($id: ID!) {
+      minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
+        minimizedComment { isMinimized }
+      }
+    }`,
+    { id: existing.nodeId },
+  );
 }
