@@ -1,6 +1,35 @@
 import type { DiffReport, PackageChange } from '../types.js';
 
-function packageUrl(ecosystem: string, name: string): string | null {
+const PUBLIC_NPM_ORIGINS = new Set(['https://registry.npmjs.org', 'https://registry.yarnpkg.com']);
+const PUBLIC_PYPI_ORIGIN = 'https://pypi.org';
+
+function packageUrl(ecosystem: string, name: string, registryUrl?: string): string | null {
+  if (registryUrl !== undefined) {
+    let origin: string;
+    try {
+      origin = new URL(registryUrl).origin;
+    } catch {
+      return null;
+    }
+
+    const isNpmLike =
+      ecosystem === 'javascript' || (ecosystem === 'deno' && !name.startsWith('jsr:'));
+    if (isNpmLike) {
+      if (!PUBLIC_NPM_ORIGINS.has(origin)) {
+        // GitHub Packages scoped packages link to their GitHub repo page
+        if (origin === 'https://npm.pkg.github.com' && name.startsWith('@')) {
+          const parts = name.slice(1).split('/');
+          if (parts.length === 2) return `https://github.com/${parts[0]}/${parts[1]}`;
+        }
+        return null;
+      }
+    } else if (ecosystem === 'python') {
+      if (!origin.startsWith(PUBLIC_PYPI_ORIGIN)) {
+        return null;
+      }
+    }
+  }
+
   switch (ecosystem) {
     case 'python':
       return `https://pypi.org/project/${name}/`;
@@ -15,7 +44,12 @@ function packageUrl(ecosystem: string, name: string): string | null {
 }
 
 function formatName(change: PackageChange, ecosystem: string): string {
-  const url = packageUrl(ecosystem, change.name);
+  // Use the new registry for added/updated, old registry for removed
+  const url = packageUrl(
+    ecosystem,
+    change.name,
+    change.new_registry_url ?? change.old_registry_url,
+  );
   const linked = url ? `[${change.name}](${url})` : change.name;
   if (change.is_direct && !change.is_dev) return `**${linked}**`;
   if (change.is_dev) return `*${linked}*`;

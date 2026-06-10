@@ -72,7 +72,7 @@ No inputs are required on `pull_request` or `push` events. The action reads the 
 
 ### Markdown summary
 
-When `markdown: 'true'` or `post-comment` is not `'false'`, lockdelta generates a three-section markdown summary. Direct production dependencies are **bold**, dev dependencies are *italic*, and transitive deps are plain. Package names link to their registry (PyPI, npmjs, jsr.io).
+When `markdown: 'true'` or `post-comment` is not `'false'`, lockdelta generates a three-section markdown summary. Direct production dependencies are **bold**, dev dependencies are *italic*, and transitive deps are plain. Package names link to their public registry (PyPI, npmjs, jsr.io). Packages sourced from a private registry are shown without a link; GitHub Packages scoped packages link to their GitHub repository page instead.
 
 ```yaml
 - name: Diff dependencies
@@ -234,14 +234,17 @@ console.log(report.summary);
 
 ```ts
 import { registerEcosystem } from 'lockdelta';
-import type { Ecosystem, DirectDeps } from 'lockdelta';
+import type { Ecosystem, DirectDeps, PackageEntry } from 'lockdelta';
 
 const rubyEcosystem: Ecosystem = {
   name: 'ruby',
   supportedLockfiles: [{ filename: 'Gemfile.lock', type: 'bundler' }],
   manifestName: 'Gemfile',
   getLockfileType: (filename) => filename === 'Gemfile.lock' ? 'bundler' : undefined,
-  parseLockfile: (content, _type) => { /* parse and return { name: version } */ return {}; },
+  parseLockfile: (content, _type): Record<string, PackageEntry> => {
+    // parse and return { packageName: { version, registryUrl? } }
+    return {};
+  },
   parseDirectDeps: (content): DirectDeps => ({ prod: new Set(), dev: new Set() }),
   normalizeName: (name) => name.toLowerCase(),
 };
@@ -259,8 +262,11 @@ interface PackageChange {
   change_type: 'added' | 'removed' | 'updated';
   old_version: string | null;
   new_version: string | null;
-  is_direct: boolean;  // declared in the project manifest
-  is_dev: boolean;     // declared in a dev/optional dependency section
+  is_direct: boolean;       // declared in the project manifest
+  is_dev: boolean;          // declared in a dev/optional dependency section
+  old_registry_url?: string; // registry origin of the old version (e.g. 'https://npm.pkg.github.com')
+  new_registry_url?: string; // registry origin of the new version
+  // Both fields present on 'updated' changes: a mismatch signals a potential registry switch
 }
 
 interface DiffReport {

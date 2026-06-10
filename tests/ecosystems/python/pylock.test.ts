@@ -12,19 +12,19 @@ const fixture = (name: string) =>
 describe('pylock.toml parser (PEP 751)', () => {
   it('parses [[packages]] sections from base lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-base.toml'));
-    expect(pkgs.requests).toBe('2.31.0');
-    expect(pkgs.certifi).toBe('2024.2.2');
-    expect(pkgs.urllib3).toBe('2.2.1');
-    expect(pkgs.idna).toBe('3.6');
-    expect(pkgs['charset-normalizer']).toBe('3.3.2');
+    expect(pkgs.requests?.version).toBe('2.31.0');
+    expect(pkgs.certifi?.version).toBe('2024.2.2');
+    expect(pkgs.urllib3?.version).toBe('2.2.1');
+    expect(pkgs.idna?.version).toBe('3.6');
+    expect(pkgs['charset-normalizer']?.version).toBe('3.3.2');
     expect(Object.keys(pkgs)).toHaveLength(5);
   });
 
   it('parses [[packages]] sections from head lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-head.toml'));
-    expect(pkgs.requests).toBe('2.32.3');
-    expect(pkgs.httpx).toBe('0.27.0');
-    expect(pkgs.httpcore).toBe('1.0.5');
+    expect(pkgs.requests?.version).toBe('2.32.3');
+    expect(pkgs.httpx?.version).toBe('0.27.0');
+    expect(pkgs.httpcore?.version).toBe('1.0.5');
     expect(Object.keys(pkgs)).toHaveLength(7);
   });
 
@@ -74,7 +74,7 @@ name = "certifi"
 version = "2024.2.2"
 `.trim();
     const pkgs = parseTomlPackages(uvContent);
-    expect(pkgs.requests).toBe('2.31.0');
-    expect(pkgs.certifi).toBe('2024.2.2');
+    expect(pkgs.requests?.version).toBe('2.31.0');
+    expect(pkgs.certifi?.version).toBe('2024.2.2');
   });
 });

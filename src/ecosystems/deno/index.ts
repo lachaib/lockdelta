@@ -13,7 +13,7 @@ export const denoEcosystem: Ecosystem = {
     return filename === 'deno.lock' ? 'deno' : undefined;
   },
 
-  parseLockfile(content: string, _lockfileType: string): Record<string, string> {
+  parseLockfile(content: string, _lockfileType: string) {
     return parseDenoLock(content);
   },
 

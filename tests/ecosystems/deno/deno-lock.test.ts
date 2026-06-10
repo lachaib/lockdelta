@@ -13,13 +13,13 @@ describe('deno.lock parser', () => {
   describe('v3 format', () => {
     it('parses npm packages', () => {
       const pkgs = parseDenoLock(fixture('v3-base.lock'));
-      expect(pkgs.chalk).toBe('5.3.0');
-      expect(pkgs.zod).toBe('3.22.4');
+      expect(pkgs.chalk?.version).toBe('5.3.0');
+      expect(pkgs.zod?.version).toBe('3.22.4');
     });
 
     it('parses jsr packages with jsr: prefix', () => {
       const pkgs = parseDenoLock(fixture('v3-base.lock'));
-      expect(pkgs['jsr:@std/path']).toBe('0.224.0');
+      expect(pkgs['jsr:@std/path']?.version).toBe('0.224.0');
     });
 
     it('produces correct diff between base and head', () => {

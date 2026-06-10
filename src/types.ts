@@ -5,6 +5,11 @@ export interface DirectDeps {
   dev: Set<string>;
 }
 
+export interface PackageEntry {
+  version: string;
+  registryUrl?: string;
+}
+
 export interface PackageChange {
   name: string;
   change_type: ChangeType;
@@ -12,6 +17,8 @@ export interface PackageChange {
   new_version: string | null;
   is_direct: boolean;
   is_dev: boolean;
+  old_registry_url?: string;
+  new_registry_url?: string;
 }
 
 export interface MigrationInfo {

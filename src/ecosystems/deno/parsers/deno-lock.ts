@@ -1,3 +1,5 @@
+import type { PackageEntry } from '../../../types.js';
+
 interface DenoLock {
   version?: string;
   packages?: {
@@ -6,9 +8,9 @@ interface DenoLock {
   };
 }
 
-export function parseDenoLock(content: string): Record<string, string> {
+export function parseDenoLock(content: string): Record<string, PackageEntry> {
   const data = JSON.parse(content) as DenoLock;
-  const result: Record<string, string> = {};
+  const result: Record<string, PackageEntry> = {};
 
   for (const [key, registry] of [
     ['npm', data.packages?.npm],
@@ -20,7 +22,7 @@ export function parseDenoLock(content: string): Record<string, string> {
       // Prefix JSR packages to avoid collisions with same-named npm packages
       const resultKey = key === 'jsr' ? `jsr:${name}` : name;
       if (name && version && !result[resultKey]) {
-        result[resultKey] = version;
+        result[resultKey] = { version };
       }
     }
   }

@@ -12,10 +12,10 @@ const fixture = (name: string) =>
 describe('bun.lock parser', () => {
   it('parses all npm packages from base lockfile', () => {
     const pkgs = parseBunLock(fixture('simple-base.lock'));
-    expect(pkgs.express).toBe('4.18.2');
-    expect(pkgs.lodash).toBe('4.17.21');
-    expect(pkgs.typescript).toBe('5.4.5');
-    expect(pkgs.accepts).toBe('1.3.8');
+    expect(pkgs.express?.version).toBe('4.18.2');
+    expect(pkgs.lodash?.version).toBe('4.17.21');
+    expect(pkgs.typescript?.version).toBe('5.4.5');
+    expect(pkgs.accepts?.version).toBe('1.3.8');
     expect(Object.keys(pkgs)).toHaveLength(4);
   });
 
@@ -27,8 +27,8 @@ describe('bun.lock parser', () => {
 
   it('includes transitive npm packages from monorepo', () => {
     const pkgs = parseBunLock(fixture('monorepo.lock'));
-    expect(pkgs.lodash).toBe('4.17.21');
-    expect(pkgs.react).toBe('18.3.1');
+    expect(pkgs.lodash?.version).toBe('4.17.21');
+    expect(pkgs.react?.version).toBe('18.3.1');
   });
 
   it('produces correct diff between base and head', () => {

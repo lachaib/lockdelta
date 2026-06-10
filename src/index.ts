@@ -13,6 +13,7 @@ export type {
   LockfilePair,
   MigrationInfo,
   PackageChange,
+  PackageEntry,
 } from './types.js';
 
 export interface RunOptions {

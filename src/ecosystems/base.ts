@@ -1,4 +1,4 @@
-import type { DirectDeps } from '../types.js';
+import type { DirectDeps, PackageEntry } from '../types.js';
 
 export interface SupportedLockfile {
   filename: string;
@@ -11,7 +11,7 @@ export interface Ecosystem {
   readonly manifestName: string | null;
 
   getLockfileType(filename: string): string | undefined;
-  parseLockfile(content: string, lockfileType: string): Record<string, string>;
+  parseLockfile(content: string, lockfileType: string): Record<string, PackageEntry>;
   parseDirectDeps(manifestContent: string): DirectDeps;
   normalizeName(name: string): string;
 }

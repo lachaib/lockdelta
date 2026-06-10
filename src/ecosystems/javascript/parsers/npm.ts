@@ -1,5 +1,8 @@
+import type { PackageEntry } from '../../../types.js';
+
 interface NpmPackageV1 {
   version?: string;
+  resolved?: string;
   dependencies?: Record<string, NpmPackageV1>;
 }
 
@@ -8,12 +11,17 @@ interface NpmPackageLockV1 {
   dependencies?: Record<string, NpmPackageV1>;
 }
 
-interface NpmPackageLockV2 {
-  lockfileVersion?: number;
-  packages?: Record<string, { version?: string }>;
+interface NpmPackageV2 {
+  version?: string;
+  resolved?: string;
 }
 
-export function parseNpmLock(content: string): Record<string, string> {
+interface NpmPackageLockV2 {
+  lockfileVersion?: number;
+  packages?: Record<string, NpmPackageV2>;
+}
+
+export function parseNpmLock(content: string): Record<string, PackageEntry> {
   const data = JSON.parse(content) as NpmPackageLockV1 & NpmPackageLockV2;
   const version = data.lockfileVersion ?? 1;
 
@@ -28,8 +36,8 @@ export function parseNpmLock(content: string): Record<string, string> {
   return {};
 }
 
-function parseV2Packages(packages: Record<string, { version?: string }>): Record<string, string> {
-  const result: Record<string, string> = {};
+function parseV2Packages(packages: Record<string, NpmPackageV2>): Record<string, PackageEntry> {
+  const result: Record<string, PackageEntry> = {};
 
   for (const [key, pkg] of Object.entries(packages)) {
     if (!key) continue;
@@ -41,7 +49,10 @@ function parseV2Packages(packages: Record<string, { version?: string }>): Record
     const name = key.slice('node_modules/'.length);
     const pkgVersion = pkg.version;
     if (pkgVersion && !result[name]) {
-      result[name] = pkgVersion;
+      const entry: PackageEntry = { version: pkgVersion };
+      const registryUrl = resolvedToOrigin(pkg.resolved);
+      if (registryUrl !== undefined) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
   }
 
@@ -50,15 +61,27 @@ function parseV2Packages(packages: Record<string, { version?: string }>): Record
 
 function parseV1Dependencies(
   deps: Record<string, NpmPackageV1>,
-  result: Record<string, string> = {},
-): Record<string, string> {
+  result: Record<string, PackageEntry> = {},
+): Record<string, PackageEntry> {
   for (const [name, pkg] of Object.entries(deps)) {
     if (pkg.version && !result[name]) {
-      result[name] = pkg.version;
+      const entry: PackageEntry = { version: pkg.version };
+      const registryUrl = resolvedToOrigin(pkg.resolved);
+      if (registryUrl !== undefined) entry.registryUrl = registryUrl;
+      result[name] = entry;
     }
     if (pkg.dependencies) {
       parseV1Dependencies(pkg.dependencies, result);
     }
   }
   return result;
+}
+
+function resolvedToOrigin(resolved: string | undefined): string | undefined {
+  if (!resolved) return undefined;
+  try {
+    return new URL(resolved).origin;
+  } catch {
+    return undefined;
+  }
 }

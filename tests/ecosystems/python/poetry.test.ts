@@ -12,18 +12,18 @@ const fixture = (name: string) =>
 describe('poetry.lock parser', () => {
   it('parses all packages from a simple base lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-base.lock'));
-    expect(pkgs.requests).toBe('2.28.2');
-    expect(pkgs.urllib3).toBe('1.26.15');
-    expect(pkgs.certifi).toBe('2023.7.22');
-    expect(pkgs['charset-normalizer']).toBe('3.2.0');
+    expect(pkgs.requests?.version).toBe('2.28.2');
+    expect(pkgs.urllib3?.version).toBe('1.26.15');
+    expect(pkgs.certifi?.version).toBe('2023.7.22');
+    expect(pkgs['charset-normalizer']?.version).toBe('3.2.0');
     expect(Object.keys(pkgs)).toHaveLength(4);
   });
 
   it('parses all packages from head lockfile', () => {
     const pkgs = parseTomlPackages(fixture('simple-head.lock'));
-    expect(pkgs.requests).toBe('2.31.0');
-    expect(pkgs.urllib3).toBe('2.0.7');
-    expect(pkgs.idna).toBe('3.6');
+    expect(pkgs.requests?.version).toBe('2.31.0');
+    expect(pkgs.urllib3?.version).toBe('2.0.7');
+    expect(pkgs.idna?.version).toBe('3.6');
     expect(Object.keys(pkgs)).toHaveLength(5);
   });
 

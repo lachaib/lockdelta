@@ -13,14 +13,19 @@ describe('yarn.lock parser', () => {
   describe('yarn classic (v1)', () => {
     it('parses packages from v1 format', () => {
       const pkgs = parseYarnLock(fixture('v1-base.lock'));
-      expect(pkgs.express).toBe('4.18.2');
-      expect(pkgs.lodash).toBe('4.17.21');
-      expect(pkgs.typescript).toBe('5.2.2');
+      expect(pkgs.express?.version).toBe('4.18.2');
+      expect(pkgs.lodash?.version).toBe('4.17.21');
+      expect(pkgs.typescript?.version).toBe('5.2.2');
+    });
+
+    it('extracts registry URL from resolved field', () => {
+      const pkgs = parseYarnLock(fixture('v1-base.lock'));
+      expect(pkgs.express?.registryUrl).toBe('https://registry.yarnpkg.com');
     });
 
     it('handles scoped packages with multiple specifiers', () => {
       const pkgs = parseYarnLock(fixture('v1-base.lock'));
-      expect(pkgs['@babel/core']).toBe('7.23.9');
+      expect(pkgs['@babel/core']?.version).toBe('7.23.9');
     });
 
     it('produces correct diff between v1 base and head', () => {
@@ -54,10 +59,10 @@ describe('yarn.lock parser', () => {
   describe('yarn berry (v2+)', () => {
     it('parses packages from Berry format', () => {
       const pkgs = parseYarnLock(fixture('berry-base.lock'));
-      expect(pkgs.express).toBe('4.18.2');
-      expect(pkgs.lodash).toBe('4.17.21');
-      expect(pkgs['@babel/core']).toBe('7.24.0');
-      expect(pkgs.typescript).toBe('5.4.5');
+      expect(pkgs.express?.version).toBe('4.18.2');
+      expect(pkgs.lodash?.version).toBe('4.17.21');
+      expect(pkgs['@babel/core']?.version).toBe('7.24.0');
+      expect(pkgs.typescript?.version).toBe('5.4.5');
     });
 
     it('excludes workspace packages (linkType: soft)', () => {
@@ -68,6 +73,27 @@ describe('yarn.lock parser', () => {
     it('excludes __metadata entry', () => {
       const pkgs = parseYarnLock(fixture('berry-base.lock'));
       expect('__metadata' in pkgs).toBe(false);
+    });
+
+    it('sets registryUrl for berry packages with explicit tarball URL', () => {
+      const content = `__metadata:
+  version: 8
+  cacheKey: 10c0
+
+"@myorg/private@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@myorg/private@https://npm.pkg.github.com/@myorg/private-1.0.0.tgz#abc123"
+  checksum: 10c0/abc
+  languageName: node
+  linkType: hard
+`;
+      const pkgs = parseYarnLock(content);
+      expect(pkgs['@myorg/private']?.registryUrl).toBe('https://npm.pkg.github.com');
+    });
+
+    it('does not set registryUrl for berry packages with npm: protocol', () => {
+      const pkgs = parseYarnLock(fixture('berry-base.lock'));
+      expect(pkgs.express?.registryUrl).toBeUndefined();
     });
 
     it('produces correct diff between Berry base and head', () => {
@@ -94,14 +120,14 @@ describe('yarn.lock parser', () => {
       const content = fixture('v1-base.lock');
       expect(content).not.toContain('__metadata');
       const pkgs = parseYarnLock(content);
-      expect(pkgs.express).toBe('4.18.2');
+      expect(pkgs.express?.version).toBe('4.18.2');
     });
 
     it('correctly identifies Berry format (has __metadata)', () => {
       const content = fixture('berry-base.lock');
       expect(content).toContain('__metadata:');
       const pkgs = parseYarnLock(content);
-      expect(pkgs.express).toBe('4.18.2');
+      expect(pkgs.express?.version).toBe('4.18.2');
     });
   });
 });

@@ -13,10 +13,10 @@ describe('pnpm-lock.yaml parser', () => {
   describe('lockfile v9', () => {
     it('parses packages from v9 format', () => {
       const pkgs = parsePnpmLock(fixture('v9-base.yaml'));
-      expect(pkgs.express).toBe('4.18.2');
-      expect(pkgs.lodash).toBe('4.17.21');
-      expect(pkgs.typescript).toBe('5.2.2');
-      expect(pkgs.accepts).toBe('1.3.8');
+      expect(pkgs.express?.version).toBe('4.18.2');
+      expect(pkgs.lodash?.version).toBe('4.17.21');
+      expect(pkgs.typescript?.version).toBe('5.2.2');
+      expect(pkgs.accepts?.version).toBe('1.3.8');
     });
 
     it('does not include snapshots — only packages section', () => {
@@ -52,14 +52,32 @@ describe('pnpm-lock.yaml parser', () => {
   describe('lockfile v6', () => {
     it('parses packages from v6 format (/@name@version keys)', () => {
       const pkgs = parsePnpmLock(fixture('v6-base.yaml'));
-      expect(pkgs.express).toBe('4.18.2');
-      expect(pkgs.lodash).toBe('4.17.21');
-      expect(pkgs.typescript).toBe('5.2.2');
+      expect(pkgs.express?.version).toBe('4.18.2');
+      expect(pkgs.lodash?.version).toBe('4.17.21');
+      expect(pkgs.typescript?.version).toBe('5.2.2');
     });
 
     it('handles scoped packages in v6 format', () => {
       const pkgs = parsePnpmLock(fixture('v6-base.yaml'));
-      expect(pkgs['@babel/core']).toBe('7.24.0');
+      expect(pkgs['@babel/core']?.version).toBe('7.24.0');
+    });
+  });
+
+  describe('private registry detection', () => {
+    it('sets registryUrl from resolution.tarball for private packages', () => {
+      const content = `lockfileVersion: '9.0'
+
+packages:
+  "@myorg/private@1.0.0":
+    resolution: {tarball: 'https://npm.pkg.github.com/@myorg/private/-/private-1.0.0.tgz', integrity: sha512-abc}
+`;
+      const pkgs = parsePnpmLock(content);
+      expect(pkgs['@myorg/private']?.registryUrl).toBe('https://npm.pkg.github.com');
+    });
+
+    it('does not set registryUrl for packages without tarball (uses configured registry)', () => {
+      const pkgs = parsePnpmLock(fixture('v9-base.yaml'));
+      expect(pkgs.express?.registryUrl).toBeUndefined();
     });
   });
 

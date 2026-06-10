@@ -1,18 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { diffPackages } from '../../src/core/diff.js';
 import { normalizePythonName } from '../../src/ecosystems/python/pyproject.js';
+import type { PackageEntry } from '../../src/types.js';
 import { directDeps } from '../helpers.js';
 
 const norm = normalizePythonName;
 
+function p(version: string, registryUrl?: string): PackageEntry {
+  return registryUrl ? { version, registryUrl } : { version };
+}
+
 describe('diffPackages', () => {
   it('returns empty array when lockfiles are identical', () => {
-    const pkgs = { requests: '2.31.0', certifi: '2024.1.1' };
+    const pkgs = { requests: p('2.31.0'), certifi: p('2024.1.1') };
     expect(diffPackages(pkgs, pkgs, directDeps([]), norm)).toEqual([]);
   });
 
   it('detects added package', () => {
-    const changes = diffPackages({}, { httpx: '0.27.0' }, directDeps([]), norm);
+    const changes = diffPackages({}, { httpx: p('0.27.0') }, directDeps([]), norm);
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({
       name: 'httpx',
@@ -25,7 +30,7 @@ describe('diffPackages', () => {
   });
 
   it('detects removed package', () => {
-    const changes = diffPackages({ urllib3: '1.26.15' }, {}, directDeps([]), norm);
+    const changes = diffPackages({ urllib3: p('1.26.15') }, {}, directDeps([]), norm);
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({
       name: 'urllib3',
@@ -39,8 +44,8 @@ describe('diffPackages', () => {
 
   it('detects updated package', () => {
     const changes = diffPackages(
-      { requests: '2.31.0' },
-      { requests: '2.32.3' },
+      { requests: p('2.31.0') },
+      { requests: p('2.32.3') },
       directDeps([]),
       norm,
     );
@@ -55,8 +60,8 @@ describe('diffPackages', () => {
 
   it('marks direct prod dependencies correctly', () => {
     const changes = diffPackages(
-      { requests: '2.31.0', urllib3: '2.2.1' },
-      { requests: '2.32.3', urllib3: '2.2.2' },
+      { requests: p('2.31.0'), urllib3: p('2.2.1') },
+      { requests: p('2.32.3'), urllib3: p('2.2.2') },
       directDeps(['requests', 'django']),
       norm,
     );
@@ -69,8 +74,8 @@ describe('diffPackages', () => {
 
   it('marks dev dependencies correctly', () => {
     const changes = diffPackages(
-      { pytest: '8.0.0', urllib3: '2.2.1' },
-      { pytest: '8.1.0', urllib3: '2.2.2' },
+      { pytest: p('8.0.0'), urllib3: p('2.2.1') },
+      { pytest: p('8.1.0'), urllib3: p('2.2.2') },
       directDeps([], ['pytest']),
       norm,
     );
@@ -82,14 +87,19 @@ describe('diffPackages', () => {
   });
 
   it('handles name normalization for direct dep matching', () => {
-    const changes = diffPackages({}, { 'my-package': '1.0.0' }, directDeps(['my_package']), norm);
+    const changes = diffPackages(
+      {},
+      { 'my-package': p('1.0.0') },
+      directDeps(['my_package']),
+      norm,
+    );
     expect(changes[0].is_direct).toBe(true);
   });
 
   it('returns changes sorted alphabetically by package name', () => {
     const changes = diffPackages(
-      { zebra: '1.0', apple: '1.0' },
-      { zebra: '2.0', banana: '1.0', apple: '2.0' },
+      { zebra: p('1.0'), apple: p('1.0') },
+      { zebra: p('2.0'), banana: p('1.0'), apple: p('2.0') },
       directDeps([]),
       norm,
     );
@@ -98,8 +108,8 @@ describe('diffPackages', () => {
   });
 
   it('handles multiple change types in one diff', () => {
-    const base = { requests: '2.31.0', old_dep: '1.0.0', stable: '5.0.0' };
-    const head = { requests: '2.32.3', new_dep: '2.0.0', stable: '5.0.0' };
+    const base = { requests: p('2.31.0'), old_dep: p('1.0.0'), stable: p('5.0.0') };
+    const head = { requests: p('2.32.3'), new_dep: p('2.0.0'), stable: p('5.0.0') };
     const changes = diffPackages(base, head, directDeps(['requests']), norm);
 
     const byName = Object.fromEntries(changes.map((c) => [c.name, c]));
@@ -108,5 +118,44 @@ describe('diffPackages', () => {
     expect(byName.new_dep.change_type).toBe('added');
     expect('stable' in byName).toBe(false);
     expect(changes).toHaveLength(3);
+  });
+
+  it('sets new_registry_url on added package', () => {
+    const changes = diffPackages(
+      {},
+      { private_pkg: p('1.0.0', 'https://npm.pkg.github.com') },
+      directDeps([]),
+      norm,
+    );
+    expect(changes[0].new_registry_url).toBe('https://npm.pkg.github.com');
+    expect(changes[0].old_registry_url).toBeUndefined();
+  });
+
+  it('sets old_registry_url on removed package', () => {
+    const changes = diffPackages(
+      { private_pkg: p('1.0.0', 'https://npm.pkg.github.com') },
+      {},
+      directDeps([]),
+      norm,
+    );
+    expect(changes[0].old_registry_url).toBe('https://npm.pkg.github.com');
+    expect(changes[0].new_registry_url).toBeUndefined();
+  });
+
+  it('sets both registry URLs on updated package for dependency confusion detection', () => {
+    const changes = diffPackages(
+      { pkg: p('1.0.0', 'https://npm.pkg.github.com') },
+      { pkg: p('2.0.0', 'https://registry.npmjs.org') },
+      directDeps([]),
+      norm,
+    );
+    expect(changes[0].old_registry_url).toBe('https://npm.pkg.github.com');
+    expect(changes[0].new_registry_url).toBe('https://registry.npmjs.org');
+  });
+
+  it('does not set registry URLs when absent', () => {
+    const changes = diffPackages({}, { public_pkg: p('1.0.0') }, directDeps([]), norm);
+    expect(changes[0].old_registry_url).toBeUndefined();
+    expect(changes[0].new_registry_url).toBeUndefined();
   });
 });
