@@ -17,21 +17,45 @@ export function diffPackages(
 
     const normalized = normalizeName(name);
     const isProd = directDeps.prod.has(normalized);
-    const isDev = directDeps.dev.has(normalized) && !isProd;
+    const isDirectDev = directDeps.dev.has(normalized) && !isProd;
+    // Some parsers (e.g. composer.lock) can tell us a package is dev even when it's transitive
+    const isTransitiveDev =
+      !isProd && !isDirectDev && (newPkgs[name]?.dev ?? oldPkgs[name]?.dev) === true;
+    const isDev = isDirectDev || isTransitiveDev;
 
-    const change: PackageChange = {
-      name,
-      change_type: !inOld ? 'added' : !inNew ? 'removed' : 'updated',
-      old_version: inOld ? oldPkgs[name].version : null,
-      new_version: inNew ? newPkgs[name].version : null,
-      is_direct: isProd || isDev,
-      is_dev: isDev,
-    };
+    const base = { name, is_direct: isProd || isDirectDev, is_dev: isDev };
 
-    const oldRegistryUrl = inOld ? oldPkgs[name].registryUrl : undefined;
-    const newRegistryUrl = inNew ? newPkgs[name].registryUrl : undefined;
-    if (oldRegistryUrl !== undefined) change.old_registry_url = oldRegistryUrl;
-    if (newRegistryUrl !== undefined) change.new_registry_url = newRegistryUrl;
+    let change: PackageChange;
+    if (!inOld) {
+      change = {
+        ...base,
+        change_type: 'added',
+        old_version: null,
+        new_version: newPkgs[name].version,
+      };
+      if (newPkgs[name].registryUrl !== undefined)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    } else if (!inNew) {
+      change = {
+        ...base,
+        change_type: 'removed',
+        old_version: oldPkgs[name].version,
+        new_version: null,
+      };
+      if (oldPkgs[name].registryUrl !== undefined)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+    } else {
+      change = {
+        ...base,
+        change_type: 'updated',
+        old_version: oldPkgs[name].version,
+        new_version: newPkgs[name].version,
+      };
+      if (oldPkgs[name].registryUrl !== undefined)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+      if (newPkgs[name].registryUrl !== undefined)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    }
 
     changes.push(change);
   }

@@ -1,4 +1,17 @@
-export type ChangeType = 'added' | 'removed' | 'updated';
+interface PackageChangeBase {
+  name: string;
+  is_direct: boolean;
+  is_dev: boolean;
+  old_registry_url?: string;
+  new_registry_url?: string;
+}
+
+export type PackageChange =
+  | (PackageChangeBase & { change_type: 'added'; old_version: null; new_version: string })
+  | (PackageChangeBase & { change_type: 'removed'; old_version: string; new_version: null })
+  | (PackageChangeBase & { change_type: 'updated'; old_version: string; new_version: string });
+
+export type ChangeType = PackageChange['change_type'];
 
 export interface DirectDeps {
   prod: Set<string>;
@@ -8,17 +21,8 @@ export interface DirectDeps {
 export interface PackageEntry {
   version: string;
   registryUrl?: string;
-}
-
-export interface PackageChange {
-  name: string;
-  change_type: ChangeType;
-  old_version: string | null;
-  new_version: string | null;
-  is_direct: boolean;
-  is_dev: boolean;
-  old_registry_url?: string;
-  new_registry_url?: string;
+  /** Set by parsers that can determine dev status from the lockfile itself (e.g. composer.lock packages-dev). */
+  dev?: boolean;
 }
 
 export interface MigrationInfo {
