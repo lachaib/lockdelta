@@ -2,6 +2,11 @@ import type { DiffReport, PackageChange } from '../types.js';
 
 const PUBLIC_NPM_ORIGINS = new Set(['https://registry.npmjs.org', 'https://registry.yarnpkg.com']);
 const PUBLIC_PYPI_ORIGIN = 'https://pypi.org';
+// Packagist packages reference GitHub CDN in dist.url, not packagist.org itself
+const PUBLIC_PACKAGIST_DIST_ORIGINS = new Set([
+  'https://api.github.com',
+  'https://codeload.github.com',
+]);
 
 function packageUrl(ecosystem: string, name: string, registryUrl?: string): string | null {
   if (registryUrl !== undefined) {
@@ -28,6 +33,10 @@ function packageUrl(ecosystem: string, name: string, registryUrl?: string): stri
       if (!origin.startsWith(PUBLIC_PYPI_ORIGIN)) {
         return null;
       }
+    } else if (ecosystem === 'php') {
+      if (!PUBLIC_PACKAGIST_DIST_ORIGINS.has(origin)) {
+        return null;
+      }
     }
   }
 
@@ -39,6 +48,8 @@ function packageUrl(ecosystem: string, name: string, registryUrl?: string): stri
     case 'deno':
       if (name.startsWith('jsr:')) return `https://jsr.io/${name.slice(4)}`;
       return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
+    case 'php':
+      return `https://packagist.org/packages/${name}`;
     default:
       return null;
   }

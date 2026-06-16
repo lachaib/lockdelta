@@ -2,7 +2,7 @@
 
 Diff dependency lockfiles between git refs or PRs and emit a structured report. Works as a **GitHub Action**, **CLI**, or **Node.js library**.
 
-Supports Python, JavaScript, and Deno ecosystems — including automatic detection of tool migrations (e.g. poetry → uv). Monorepo-aware: all lockfiles in the repository are auto-discovered.
+Supports Python, JavaScript, Deno, and PHP ecosystems — including automatic detection of tool migrations (e.g. poetry → uv). Monorepo-aware: all lockfiles in the repository are auto-discovered.
 
 ---
 
@@ -55,7 +55,7 @@ No inputs are required on `pull_request` or `push` events. The action reads the 
 | `head-ref` | Head git ref. Reads `GITHUB_HEAD_REF` in CI. | `HEAD` |
 | `repo` | GitHub repo in `OWNER/NAME` format. Auto-detected from `GITHUB_REPOSITORY`. | Auto |
 | `lockfile` | Specific lockfile path. Auto-discovers all if omitted. | — |
-| `type` | Force lockfile type: `uv`, `poetry`, `pdm`, etc. Used with `lockfile`. | — |
+| `type` | Force lockfile type: `uv`, `poetry`, `pdm`, `npm`, `yarn`, `pnpm`, `bun`, `deno`, `composer`. Used with `lockfile`. | — |
 | `filters` | YAML map of named package groups → boolean outputs (see [Filters](#filters)). | — |
 | `markdown` | Set to `'true'` to generate a markdown summary output. | `false` |
 | `json-to-file` | File path to write the JSON report to. | — |
@@ -185,7 +185,7 @@ npx lockdelta [options]
 --pr <number>        GitHub PR number (uses GitHub API for exact SHAs)
 --repo <owner/name>  GitHub repository (auto-detected from GITHUB_REPOSITORY or git remote)
 --lockfile <path>    Compare a specific lockfile only
---type <type>        Force lockfile type: uv, poetry, pdm, npm, yarn, pnpm, bun, deno
+--type <type>        Force lockfile type: uv, poetry, pdm, npm, yarn, pnpm, bun, deno, composer
 --old <path>         Old lockfile path (local file comparison mode)
 --new <path>         New lockfile path (local file comparison mode)
 --output <path>      Write JSON to file instead of stdout
@@ -285,7 +285,7 @@ interface DiffReport {
     path: string | null;
     workspace: string;           // '.' for root, 'packages/backend' for monorepos
     type: string | null;         // e.g. 'uv' | 'poetry' | 'npm' | 'yarn'
-    ecosystem: string;           // e.g. 'python' | 'javascript' | 'deno'
+    ecosystem: string;           // e.g. 'python' | 'javascript' | 'deno' | 'php'
     summary: { added: number; removed: number; updated: number; total_changes: number };
     changes: PackageChange[];
     migration: {                 // non-null when the lockfile tool changed between refs
@@ -332,6 +332,16 @@ Manifest: `package.json`. `dependencies`, `optionalDependencies`, `peerDependenc
 | `deno.lock` | [Deno](https://deno.land) |
 
 Manifest: `deno.json`. Both npm and JSR packages are tracked (JSR packages are prefixed with `jsr:` to avoid name collisions).
+
+### PHP
+
+| Lockfile | Tool |
+|----------|------|
+| `composer.lock` | [Composer](https://getcomposer.org) |
+
+Manifest: `composer.json`. `require` → prod (platform requirements like `php`, `ext-*`, and `lib-*` are excluded). `require-dev` → dev.
+
+The `registryUrl` field is extracted from each package's `dist.url` in the lockfile. For public [Packagist](https://packagist.org) packages this points to the GitHub CDN (`api.github.com`) since Packagist proxies GitHub releases. For private registries ([Private Packagist](https://packagist.com), [Satis](https://github.com/composer/satis)) it reflects the self-hosted registry origin, making registry changes visible in the diff.
 
 Migrations between lockfile formats within the same ecosystem are detected automatically (e.g. poetry → uv).
 

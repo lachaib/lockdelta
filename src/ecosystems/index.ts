@@ -1,6 +1,7 @@
 import type { Ecosystem } from './base.js';
 import { denoEcosystem } from './deno/index.js';
 import { javascriptEcosystem } from './javascript/index.js';
+import { phpEcosystem } from './php/index.js';
 import { pythonEcosystem } from './python/index.js';
 
 const registry = new Map<string, Ecosystem>();
@@ -27,3 +28,4 @@ export function getAllEcosystems(): Ecosystem[] {
 registerEcosystem(pythonEcosystem);
 registerEcosystem(javascriptEcosystem);
 registerEcosystem(denoEcosystem);
+registerEcosystem(phpEcosystem);

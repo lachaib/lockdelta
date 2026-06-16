@@ -31294,6 +31294,10 @@ function applyFiltersConfig(config, changes) {
 // src/action/markdown.ts
 var PUBLIC_NPM_ORIGINS = /* @__PURE__ */ new Set(["https://registry.npmjs.org", "https://registry.yarnpkg.com"]);
 var PUBLIC_PYPI_ORIGIN = "https://pypi.org";
+var PUBLIC_PACKAGIST_DIST_ORIGINS = /* @__PURE__ */ new Set([
+  "https://api.github.com",
+  "https://codeload.github.com"
+]);
 function packageUrl(ecosystem, name, registryUrl) {
   if (registryUrl !== void 0) {
     let origin;
@@ -31316,6 +31320,10 @@ function packageUrl(ecosystem, name, registryUrl) {
       if (!origin.startsWith(PUBLIC_PYPI_ORIGIN)) {
         return null;
       }
+    } else if (ecosystem === "php") {
+      if (!PUBLIC_PACKAGIST_DIST_ORIGINS.has(origin)) {
+        return null;
+      }
     }
   }
   switch (ecosystem) {
@@ -31326,6 +31334,8 @@ function packageUrl(ecosystem, name, registryUrl) {
     case "deno":
       if (name.startsWith("jsr:")) return `https://jsr.io/${name.slice(4)}`;
       return `https://www.npmjs.com/package/${encodeURIComponent(name)}`;
+    case "php":
+      return `https://packagist.org/packages/${name}`;
     default:
       return null;
   }
@@ -31790,6 +31800,93 @@ var javascriptEcosystem = {
   },
   normalizeName(name) {
     return normalizeJsName(name);
+  }
+};
+
+// src/ecosystems/php/composer-json.ts
+function normalizeComposerName(name) {
+  return name.toLowerCase();
+}
+function isPlatformRequirement(name) {
+  return name === "php" || name.startsWith("ext-") || name.startsWith("lib-") || name === "hhvm";
+}
+function parseDirectDeps3(content) {
+  const prod = /* @__PURE__ */ new Set();
+  const dev = /* @__PURE__ */ new Set();
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    return { prod, dev };
+  }
+  const require2 = data.require;
+  if (require2 && typeof require2 === "object") {
+    for (const name of Object.keys(require2)) {
+      if (!isPlatformRequirement(name)) {
+        prod.add(normalizeComposerName(name));
+      }
+    }
+  }
+  const requireDev = data["require-dev"];
+  if (requireDev && typeof requireDev === "object") {
+    for (const name of Object.keys(requireDev)) {
+      if (!isPlatformRequirement(name)) {
+        const normalized = normalizeComposerName(name);
+        if (!prod.has(normalized)) dev.add(normalized);
+      }
+    }
+  }
+  return { prod, dev };
+}
+
+// src/ecosystems/php/parsers/composer.ts
+function parseComposerLock(content) {
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    return {};
+  }
+  const result = {};
+  for (const [isDevGroup, list] of [
+    [false, data.packages ?? []],
+    [true, data["packages-dev"] ?? []]
+  ]) {
+    for (const pkg of list) {
+      if (typeof pkg.name !== "string" || typeof pkg.version !== "string") continue;
+      const entry = { version: pkg.version };
+      if (isDevGroup) entry.dev = true;
+      const distUrl = pkg.dist?.url;
+      if (typeof distUrl === "string") {
+        try {
+          entry.registryUrl = new URL(distUrl).origin;
+        } catch {
+        }
+      }
+      result[pkg.name] = entry;
+    }
+  }
+  return result;
+}
+
+// src/ecosystems/php/index.ts
+var SUPPORTED_LOCKFILES3 = [{ filename: "composer.lock", type: "composer" }];
+var lockfileTypeMap2 = new Map(SUPPORTED_LOCKFILES3.map((l) => [l.filename, l.type]));
+var phpEcosystem = {
+  name: "php",
+  supportedLockfiles: SUPPORTED_LOCKFILES3,
+  manifestName: "composer.json",
+  getLockfileType(filename) {
+    return lockfileTypeMap2.get(filename);
+  },
+  parseLockfile(content, _lockfileType) {
+    return parseComposerLock(content);
+  },
+  parseDirectDeps(manifestContent) {
+    return parseDirectDeps3(manifestContent);
+  },
+  normalizeName(name) {
+    return normalizeComposerName(name);
   }
 };
 
@@ -32537,7 +32634,7 @@ function extractPkgName(dep) {
   const match = String(dep).match(/^([\w][\w.-]*)/);
   return match ? normalizePythonName(match[1]) : null;
 }
-function parseDirectDeps3(content) {
+function parseDirectDeps4(content) {
   const prod = /* @__PURE__ */ new Set();
   const dev = /* @__PURE__ */ new Set();
   let data;
@@ -32619,26 +32716,26 @@ function parseDirectDeps3(content) {
 }
 
 // src/ecosystems/python/index.ts
-var SUPPORTED_LOCKFILES3 = [
+var SUPPORTED_LOCKFILES4 = [
   { filename: "uv.lock", type: "uv" },
   { filename: "poetry.lock", type: "poetry" },
   { filename: "pdm.lock", type: "pdm" },
   { filename: "pylock.toml", type: "pylock" }
   // PEP 751
 ];
-var lockfileTypeMap2 = new Map(SUPPORTED_LOCKFILES3.map((l) => [l.filename, l.type]));
+var lockfileTypeMap3 = new Map(SUPPORTED_LOCKFILES4.map((l) => [l.filename, l.type]));
 var pythonEcosystem = {
   name: "python",
-  supportedLockfiles: SUPPORTED_LOCKFILES3,
+  supportedLockfiles: SUPPORTED_LOCKFILES4,
   manifestName: "pyproject.toml",
   getLockfileType(filename) {
-    return lockfileTypeMap2.get(filename);
+    return lockfileTypeMap3.get(filename);
   },
   parseLockfile(content, _lockfileType) {
     return parseTomlPackages(content);
   },
   parseDirectDeps(manifestContent) {
-    return parseDirectDeps3(manifestContent);
+    return parseDirectDeps4(manifestContent);
   },
   normalizeName(name) {
     return normalizePythonName(name);
@@ -32665,6 +32762,7 @@ function getAllEcosystems() {
 registerEcosystem(pythonEcosystem);
 registerEcosystem(javascriptEcosystem);
 registerEcosystem(denoEcosystem);
+registerEcosystem(phpEcosystem);
 
 // src/core/diff.ts
 function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
@@ -32676,19 +32774,41 @@ function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
     if (inOld && inNew && oldPkgs[name].version === newPkgs[name].version) continue;
     const normalized = normalizeName(name);
     const isProd = directDeps.prod.has(normalized);
-    const isDev = directDeps.dev.has(normalized) && !isProd;
-    const change = {
-      name,
-      change_type: !inOld ? "added" : !inNew ? "removed" : "updated",
-      old_version: inOld ? oldPkgs[name].version : null,
-      new_version: inNew ? newPkgs[name].version : null,
-      is_direct: isProd || isDev,
-      is_dev: isDev
-    };
-    const oldRegistryUrl = inOld ? oldPkgs[name].registryUrl : void 0;
-    const newRegistryUrl = inNew ? newPkgs[name].registryUrl : void 0;
-    if (oldRegistryUrl !== void 0) change.old_registry_url = oldRegistryUrl;
-    if (newRegistryUrl !== void 0) change.new_registry_url = newRegistryUrl;
+    const isDirectDev = directDeps.dev.has(normalized) && !isProd;
+    const isTransitiveDev = !isProd && !isDirectDev && (newPkgs[name]?.dev ?? oldPkgs[name]?.dev) === true;
+    const isDev = isDirectDev || isTransitiveDev;
+    const base = { name, is_direct: isProd || isDirectDev, is_dev: isDev };
+    let change;
+    if (!inOld) {
+      change = {
+        ...base,
+        change_type: "added",
+        old_version: null,
+        new_version: newPkgs[name].version
+      };
+      if (newPkgs[name].registryUrl !== void 0)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    } else if (!inNew) {
+      change = {
+        ...base,
+        change_type: "removed",
+        old_version: oldPkgs[name].version,
+        new_version: null
+      };
+      if (oldPkgs[name].registryUrl !== void 0)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+    } else {
+      change = {
+        ...base,
+        change_type: "updated",
+        old_version: oldPkgs[name].version,
+        new_version: newPkgs[name].version
+      };
+      if (oldPkgs[name].registryUrl !== void 0)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+      if (newPkgs[name].registryUrl !== void 0)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    }
     changes.push(change);
   }
   return changes;

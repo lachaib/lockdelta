@@ -43,8 +43,12 @@ describe('detectLockfileInfo', () => {
   it('returns null for unsupported lockfiles', () => {
     expect(detectLockfileInfo('Gemfile.lock')).toBeNull();
     expect(detectLockfileInfo('Cargo.lock')).toBeNull();
-    expect(detectLockfileInfo('composer.lock')).toBeNull();
     expect(detectLockfileInfo('go.sum')).toBeNull();
+  });
+
+  it('detects composer.lock', () => {
+    const info = detectLockfileInfo('composer.lock');
+    expect(info).toMatchObject({ path: 'composer.lock', type: 'composer', ecosystemName: 'php' });
   });
 });
 

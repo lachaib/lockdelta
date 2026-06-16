@@ -260,6 +260,58 @@ describe('generateMarkdown', () => {
     expect(md).toContain('[requests](https://pypi.org/project/requests/)');
   });
 
+  it('links php packages to packagist.org', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'symfony/console',
+        change_type: 'updated',
+        old_version: 'v6.4.0',
+        new_version: 'v6.4.2',
+        is_direct: true,
+        is_dev: false,
+        old_registry_url: 'https://api.github.com',
+        new_registry_url: 'https://api.github.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'php'));
+    expect(md).toContain('[symfony/console](https://packagist.org/packages/symfony/console)');
+  });
+
+  it('links php packages to packagist.org when dist uses codeload CDN', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'guzzlehttp/guzzle',
+        change_type: 'added',
+        old_version: null,
+        new_version: '7.8.0',
+        is_direct: true,
+        is_dev: false,
+        new_registry_url: 'https://codeload.github.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'php'));
+    expect(md).toContain('[guzzlehttp/guzzle](https://packagist.org/packages/guzzlehttp/guzzle)');
+  });
+
+  it('omits link for php packages from a private Satis registry', () => {
+    const changes: PackageChange[] = [
+      {
+        name: 'acme/private-lib',
+        change_type: 'added',
+        old_version: null,
+        new_version: '1.0.0',
+        is_direct: true,
+        is_dev: false,
+        new_registry_url: 'https://satis.acme.example.com',
+      },
+    ];
+    const md = generateMarkdown(makeReport(changes, 'php'));
+    expect(md).toContain('acme/private-lib');
+    expect(md).not.toContain('packagist.org');
+    expect(md).not.toContain('href');
+    expect(md).not.toContain('](');
+  });
+
   it('links deno jsr packages to jsr.io', () => {
     const changes: PackageChange[] = [
       {
