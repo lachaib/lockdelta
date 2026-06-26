@@ -31196,7 +31196,15 @@ async function getPrShas(prNumber, repo) {
     throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
   }
   const data = await response.json();
-  return { baseRefOid: data.base.sha, headRefOid: data.head.sha };
+  const baseSha = data.base.sha;
+  const headSha = data.head.sha;
+  const compareUrl = `${API_BASE}/repos/${repo}/compare/${baseSha}...${headSha}`;
+  const compareResp = await fetch(compareUrl, { headers: headers() });
+  if (compareResp.ok) {
+    const compareData = await compareResp.json();
+    return { baseRefOid: compareData.merge_base_commit.sha, headRefOid: headSha };
+  }
+  return { baseRefOid: baseSha, headRefOid: headSha };
 }
 function detectRepo() {
   const fromEnv = process.env.GITHUB_REPOSITORY;
