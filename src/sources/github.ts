@@ -65,7 +65,21 @@ export async function getPrShas(prNumber: string, repo: string): Promise<PrShas>
     throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
   }
   const data = (await response.json()) as { base: { sha: string }; head: { sha: string } };
-  return { baseRefOid: data.base.sha, headRefOid: data.head.sha };
+  const baseSha = data.base.sha;
+  const headSha = data.head.sha;
+
+  // base.sha is the current tip of the base branch, not the merge-base.
+  // If other PRs merged to the base after this PR was opened, comparing base.sha
+  // vs head.sha would show their dep changes as false positives.
+  // Use the compare endpoint to find the actual common ancestor (three-dot diff base).
+  const compareUrl = `${API_BASE}/repos/${repo}/compare/${baseSha}...${headSha}`;
+  const compareResp = await fetch(compareUrl, { headers: headers() });
+  if (compareResp.ok) {
+    const compareData = (await compareResp.json()) as { merge_base_commit: { sha: string } };
+    return { baseRefOid: compareData.merge_base_commit.sha, headRefOid: headSha };
+  }
+
+  return { baseRefOid: baseSha, headRefOid: headSha };
 }
 
 export function detectRepo(): string {
