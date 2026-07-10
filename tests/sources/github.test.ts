@@ -116,6 +116,43 @@ describe('github source', () => {
       expect(String(fetchMock.mock.calls[1][0])).toContain('/contents/big.lock');
     });
 
+    it('retries the REST fallback on a transient error before giving up', async () => {
+      let restCalls = 0;
+      fetchMock.mockImplementation((url: string) => {
+        if (url.endsWith('/graphql')) {
+          return Promise.resolve(
+            jsonResponse(200, {
+              data: { r0: { f0: { __typename: 'Blob', text: 'partial...', isTruncated: true } } },
+            }),
+          );
+        }
+        restCalls++;
+        if (restCalls === 1) return Promise.resolve(textResponse(500, 'transient'));
+        return Promise.resolve(textResponse(200, 'full content via REST'));
+      });
+
+      const promise = ghFileAtSha('sha', 'big.lock', 'org/repo');
+      await vi.runAllTimersAsync();
+      await expect(promise).resolves.toBe('full content via REST');
+      expect(restCalls).toBe(2);
+    });
+
+    it('does not retry the REST fallback on a non-retryable 404', async () => {
+      fetchMock.mockImplementation((url: string) => {
+        if (url.endsWith('/graphql')) {
+          return Promise.resolve(
+            jsonResponse(200, {
+              data: { r0: { f0: { __typename: 'Blob', text: 'partial...', isTruncated: true } } },
+            }),
+          );
+        }
+        return Promise.resolve(textResponse(404, 'gone by the time REST fetched it'));
+      });
+
+      await expect(ghFileAtSha('sha', 'big.lock', 'org/repo')).resolves.toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects every batched call when the GraphQL request returns a hard error', async () => {
       fetchMock.mockResolvedValue(
         jsonResponse(200, { errors: [{ type: 'FORBIDDEN', message: 'nope' }] }),

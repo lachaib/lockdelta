@@ -184,9 +184,11 @@ let blobFlushScheduled = false;
 /**
  * Queues a blob fetch to be merged with any other ghFileAtSha calls made in the same
  * microtask tick (e.g. the Promise.all fan-outs in report.ts/discovery.ts) into one
- * batched GraphQL query, instead of one REST call per file. Falls back to the caller's
- * own REST call for a single blob if the batch flush call itself fails outright — see
- * ghFileAtSha, which retries via REST on a rejected queueBlobRequest.
+ * batched GraphQL query, instead of one REST call per file. If the batch's request fails
+ * outright (rate-limited past retries, network error), every request in it rejects together —
+ * there's no REST fallback here, since retrying N individual REST calls right when the batch
+ * failed would work against the point of batching in the first place. The REST fallback in
+ * ghFileAtSha only covers the truncated-blob case, not a failed batch.
  */
 function queueBlobRequest(
   repo: string,
