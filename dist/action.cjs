@@ -31147,6 +31147,16 @@ var import_yaml4 = __toESM(require_dist2(), 1);
 // src/sources/github.ts
 var import_node_child_process = require("child_process");
 var API_BASE = "https://api.github.com";
+var MAX_ATTEMPTS = 4;
+var RETRY_BASE_DELAY_MS = 500;
+var GithubApiError = class extends Error {
+  constructor(status, action) {
+    super(`GitHub API error ${status}: failed to ${action}`);
+    this.status = status;
+    this.name = "GithubApiError";
+  }
+  status;
+};
 var cachedToken;
 function resolveToken() {
   if (cachedToken) return cachedToken;
@@ -31174,32 +31184,80 @@ function headers(accept = "application/vnd.github+json") {
     "X-GitHub-Api-Version": "2022-11-28"
   };
 }
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function isRetryableStatus(response) {
+  if (response.status === 429 || response.status >= 500) return true;
+  if (response.status === 403) {
+    return response.headers.get("retry-after") !== null || response.headers.get("x-ratelimit-remaining") === "0";
+  }
+  return false;
+}
+function retryDelayMs(response, attempt) {
+  const retryAfter = response?.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return seconds * 1e3;
+  }
+  const resetHeader = response?.headers.get("x-ratelimit-reset");
+  if (resetHeader) {
+    const resetMs = Number(resetHeader) * 1e3 - Date.now();
+    if (Number.isFinite(resetMs) && resetMs > 0) return resetMs;
+  }
+  return RETRY_BASE_DELAY_MS * 2 ** attempt;
+}
+async function fetchWithRetry(url, options) {
+  let lastNetworkError;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (err) {
+      lastNetworkError = err;
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(retryDelayMs(void 0, attempt));
+        continue;
+      }
+      throw new Error(
+        `GitHub API request failed after ${MAX_ATTEMPTS} attempts: ${err.message}`
+      );
+    }
+    if (response.ok || response.status === 404 || !isRetryableStatus(response) || attempt === MAX_ATTEMPTS - 1) {
+      return response;
+    }
+    await sleep(retryDelayMs(response, attempt));
+  }
+  throw lastNetworkError instanceof Error ? lastNetworkError : new Error("GitHub API request failed");
+}
 async function ghFileAtSha(sha, path, repo) {
   const url = `${API_BASE}/repos/${repo}/contents/${path}?ref=${sha}`;
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: headers("application/vnd.github.raw+json")
   });
-  if (!response.ok) return null;
+  if (response.status === 404) return null;
+  if (!response.ok) throw new GithubApiError(response.status, `fetch file ${path}@${sha}`);
   return response.text();
 }
 async function ghLsTree(sha, repo) {
   const url = `${API_BASE}/repos/${repo}/git/trees/${sha}?recursive=1`;
-  const response = await fetch(url, { headers: headers() });
-  if (!response.ok) return [];
+  const response = await fetchWithRetry(url, { headers: headers() });
+  if (response.status === 404) return [];
+  if (!response.ok) throw new GithubApiError(response.status, `list tree ${sha}`);
   const data = await response.json();
   return data.tree.filter((item) => item.type === "blob").map((item) => item.path);
 }
 async function getPrShas(prNumber, repo) {
   const url = `${API_BASE}/repos/${repo}/pulls/${prNumber}`;
-  const response = await fetch(url, { headers: headers() });
+  const response = await fetchWithRetry(url, { headers: headers() });
   if (!response.ok) {
-    throw new Error(`GitHub API error ${response.status}: failed to fetch PR #${prNumber}`);
+    throw new GithubApiError(response.status, `fetch PR #${prNumber}`);
   }
   const data = await response.json();
   const baseSha = data.base.sha;
   const headSha = data.head.sha;
   const compareUrl = `${API_BASE}/repos/${repo}/compare/${baseSha}...${headSha}`;
-  const compareResp = await fetch(compareUrl, { headers: headers() });
+  const compareResp = await fetchWithRetry(compareUrl, { headers: headers() });
   if (compareResp.ok) {
     const compareData = await compareResp.json();
     return { baseRefOid: compareData.merge_base_commit.sha, headRefOid: headSha };
