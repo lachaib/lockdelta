@@ -1796,10 +1796,10 @@ var require_request = __commonJS({
           channels.create.publish({ request: this });
         }
       }
-      onBodySent(chunk) {
+      onBodySent(chunk2) {
         if (this[kHandler].onBodySent) {
           try {
-            return this[kHandler].onBodySent(chunk);
+            return this[kHandler].onBodySent(chunk2);
           } catch (err) {
             this.abort(err);
           }
@@ -1842,11 +1842,11 @@ var require_request = __commonJS({
           this.abort(err);
         }
       }
-      onData(chunk) {
+      onData(chunk2) {
         assert(!this.aborted);
         assert(!this.completed);
         try {
-          return this[kHandler].onData(chunk);
+          return this[kHandler].onData(chunk2);
         } catch (err) {
           this.abort(err);
           return false;
@@ -4580,15 +4580,15 @@ var require_util2 = __commonJS({
       const bytes = [];
       let byteLength = 0;
       while (true) {
-        const { done, value: chunk } = await reader.read();
+        const { done, value: chunk2 } = await reader.read();
         if (done) {
           return Buffer.concat(bytes, byteLength);
         }
-        if (!isUint8Array(chunk)) {
+        if (!isUint8Array(chunk2)) {
           throw new TypeError("Received non-Uint8Array chunk");
         }
-        bytes.push(chunk);
-        byteLength += chunk.length;
+        bytes.push(chunk2);
+        byteLength += chunk2.length;
       }
     }
     function urlIsLocal(url) {
@@ -4691,18 +4691,18 @@ var require_util2 = __commonJS({
         super();
         this.#zlibOptions = zlibOptions;
       }
-      _transform(chunk, encoding, callback) {
+      _transform(chunk2, encoding, callback) {
         if (!this._inflateStream) {
-          if (chunk.length === 0) {
+          if (chunk2.length === 0) {
             callback();
             return;
           }
-          this._inflateStream = (chunk[0] & 15) === 8 ? zlib.createInflate(this.#zlibOptions) : zlib.createInflateRaw(this.#zlibOptions);
+          this._inflateStream = (chunk2[0] & 15) === 8 ? zlib.createInflate(this.#zlibOptions) : zlib.createInflateRaw(this.#zlibOptions);
           this._inflateStream.on("data", this.push.bind(this));
           this._inflateStream.on("end", () => this.push(null));
           this._inflateStream.on("error", (err) => this.destroy(err));
         }
-        this._inflateStream.write(chunk, encoding, callback);
+        this._inflateStream.write(chunk2, encoding, callback);
       }
       _final(callback) {
         if (this._inflateStream) {
@@ -5428,29 +5428,29 @@ Content-Disposition: form-data`;
         let hasUnknownSizeValue = false;
         for (const [name, value] of object) {
           if (typeof value === "string") {
-            const chunk2 = textEncoder.encode(prefix + `; name="${escape(normalizeLinefeeds(name))}"\r
+            const chunk3 = textEncoder.encode(prefix + `; name="${escape(normalizeLinefeeds(name))}"\r
 \r
 ${normalizeLinefeeds(value)}\r
 `);
-            blobParts.push(chunk2);
-            length += chunk2.byteLength;
+            blobParts.push(chunk3);
+            length += chunk3.byteLength;
           } else {
-            const chunk2 = textEncoder.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` + (value.name ? `; filename="${escape(value.name)}"` : "") + `\r
+            const chunk3 = textEncoder.encode(`${prefix}; name="${escape(normalizeLinefeeds(name))}"` + (value.name ? `; filename="${escape(value.name)}"` : "") + `\r
 Content-Type: ${value.type || "application/octet-stream"}\r
 \r
 `);
-            blobParts.push(chunk2, value, rn);
+            blobParts.push(chunk3, value, rn);
             if (typeof value.size === "number") {
-              length += chunk2.byteLength + value.size + rn.byteLength;
+              length += chunk3.byteLength + value.size + rn.byteLength;
             } else {
               hasUnknownSizeValue = true;
             }
           }
         }
-        const chunk = textEncoder.encode(`--${boundary}--\r
+        const chunk2 = textEncoder.encode(`--${boundary}--\r
 `);
-        blobParts.push(chunk);
-        length += chunk.byteLength;
+        blobParts.push(chunk2);
+        length += chunk2.byteLength;
         if (hasUnknownSizeValue) {
           length = null;
         }
@@ -5838,11 +5838,11 @@ var require_client_h1 = __commonJS({
       }
       readMore() {
         while (!this.paused && this.ptr) {
-          const chunk = this.socket.read();
-          if (chunk === null) {
+          const chunk2 = this.socket.read();
+          if (chunk2 === null) {
             break;
           }
-          this.execute(chunk);
+          this.execute(chunk2);
         }
       }
       execute(data) {
@@ -6443,12 +6443,12 @@ upgrade: ${upgrade}\r
       assert(contentLength !== 0 || client[kRunning] === 0, "stream body cannot be pipelined");
       let finished = false;
       const writer = new AsyncWriter({ abort, socket, request: request2, contentLength, client, expectsPayload, header });
-      const onData = function(chunk) {
+      const onData = function(chunk2) {
         if (finished) {
           return;
         }
         try {
-          if (!writer.write(chunk) && this.pause) {
+          if (!writer.write(chunk2) && this.pause) {
             this.pause();
           }
         } catch (err) {
@@ -6583,11 +6583,11 @@ upgrade: ${upgrade}\r
       socket.on("close", onDrain).on("drain", onDrain);
       const writer = new AsyncWriter({ abort, socket, request: request2, contentLength, client, expectsPayload, header });
       try {
-        for await (const chunk of body) {
+        for await (const chunk2 of body) {
           if (socket[kError]) {
             throw socket[kError];
           }
-          if (!writer.write(chunk)) {
+          if (!writer.write(chunk2)) {
             await waitForDrain();
           }
         }
@@ -6610,7 +6610,7 @@ upgrade: ${upgrade}\r
         this.abort = abort;
         socket[kWriting] = true;
       }
-      write(chunk) {
+      write(chunk2) {
         const { socket, request: request2, contentLength, client, bytesWritten, expectsPayload, header } = this;
         if (socket[kError]) {
           throw socket[kError];
@@ -6618,7 +6618,7 @@ upgrade: ${upgrade}\r
         if (socket.destroyed) {
           return false;
         }
-        const len = Buffer.byteLength(chunk);
+        const len = Buffer.byteLength(chunk2);
         if (!len) {
           return true;
         }
@@ -6648,9 +6648,9 @@ ${len.toString(16)}\r
 `, "latin1");
         }
         this.bytesWritten += len;
-        const ret = socket.write(chunk);
+        const ret = socket.write(chunk2);
         socket.uncork();
-        request2.onBodySent(chunk);
+        request2.onBodySent(chunk2);
         if (!ret) {
           if (socket[kParser].timeout && socket[kParser].timeoutType === TIMEOUT_HEADERS) {
             if (socket[kParser].timeout.refresh) {
@@ -7035,8 +7035,8 @@ var require_client_h2 = __commonJS({
         if (request2.onHeaders(Number(statusCode), parseH2Headers(realHeaders), stream.resume.bind(stream), "") === false) {
           stream.pause();
         }
-        stream.on("data", (chunk) => {
-          if (request2.onData(chunk) === false) {
+        stream.on("data", (chunk2) => {
+          if (request2.onData(chunk2) === false) {
             stream.pause();
           }
         });
@@ -7179,8 +7179,8 @@ var require_client_h2 = __commonJS({
         }
       );
       util.addListener(pipe, "data", onPipeData);
-      function onPipeData(chunk) {
-        request2.onBodySent(chunk);
+      function onPipeData(chunk2) {
+        request2.onBodySent(chunk2);
       }
     }
     async function writeBlob(abort, h2stream, body, client, request2, socket, contentLength, expectsPayload) {
@@ -7224,12 +7224,12 @@ var require_client_h2 = __commonJS({
       });
       h2stream.on("close", onDrain).on("drain", onDrain);
       try {
-        for await (const chunk of body) {
+        for await (const chunk2 of body) {
           if (socket[kError]) {
             throw socket[kError];
           }
-          const res = h2stream.write(chunk);
-          request2.onBodySent(chunk);
+          const res = h2stream.write(chunk2);
+          request2.onBodySent(chunk2);
           if (!res) {
             await waitForDrain();
           }
@@ -7342,10 +7342,10 @@ var require_redirect_handler = __commonJS({
           this.opts.body = null;
         }
       }
-      onData(chunk) {
+      onData(chunk2) {
         if (this.location) {
         } else {
-          return this.handler.onData(chunk);
+          return this.handler.onData(chunk2);
         }
       }
       onComplete(trailers) {
@@ -7357,9 +7357,9 @@ var require_redirect_handler = __commonJS({
           this.handler.onComplete(trailers);
         }
       }
-      onBodySent(chunk) {
+      onBodySent(chunk2) {
         if (this.handler.onBodySent) {
-          this.handler.onBodySent(chunk);
+          this.handler.onBodySent(chunk2);
         }
       }
     };
@@ -8964,8 +8964,8 @@ var require_retry_handler = __commonJS({
           this.abort = abort;
         }
       }
-      onBodySent(chunk) {
-        if (this.handler.onBodySent) return this.handler.onBodySent(chunk);
+      onBodySent(chunk2) {
+        if (this.handler.onBodySent) return this.handler.onBodySent(chunk2);
       }
       static [kRetryHandlerDefaultRetry](err, { state, opts }, cb) {
         const { statusCode, code, headers: headers2 } = err;
@@ -9111,9 +9111,9 @@ var require_retry_handler = __commonJS({
         this.abort(err);
         return false;
       }
-      onData(chunk) {
-        this.start += chunk.length;
-        return this.handler.onData(chunk);
+      onData(chunk2) {
+        this.start += chunk2.length;
+        return this.handler.onData(chunk2);
       }
       onComplete(rawTrailers) {
         this.retryCount = 0;
@@ -9277,12 +9277,12 @@ var require_readable = __commonJS({
       removeListener(ev, ...args) {
         return this.off(ev, ...args);
       }
-      push(chunk) {
-        if (this[kConsume] && chunk !== null) {
-          consumePush(this[kConsume], chunk);
-          return this[kReading] ? super.push(chunk) : true;
+      push(chunk2) {
+        if (this[kConsume] && chunk2 !== null) {
+          consumePush(this[kConsume], chunk2);
+          return this[kReading] ? super.push(chunk2) : true;
         }
-        return super.push(chunk);
+        return super.push(chunk2);
       }
       // https://fetch.spec.whatwg.org/#dom-body-text
       async text() {
@@ -9348,8 +9348,8 @@ var require_readable = __commonJS({
             } else {
               resolve(null);
             }
-          }).on("error", noop3).on("data", function(chunk) {
-            limit -= chunk.length;
+          }).on("error", noop3).on("data", function(chunk2) {
+            limit -= chunk2.length;
             if (limit <= 0) {
               this.destroy();
             }
@@ -9411,8 +9411,8 @@ var require_readable = __commonJS({
           consumePush(consume2, state.buffer[n]);
         }
       } else {
-        for (const chunk of state.buffer) {
-          consumePush(consume2, chunk);
+        for (const chunk2 of state.buffer) {
+          consumePush(consume2, chunk2);
         }
       }
       if (state.endEmitted) {
@@ -9445,9 +9445,9 @@ var require_readable = __commonJS({
       const buffer = new Uint8Array(Buffer.allocUnsafeSlow(length).buffer);
       let offset = 0;
       for (let i = 0; i < chunks.length; ++i) {
-        const chunk = chunks[i];
-        buffer.set(chunk, offset);
-        offset += chunk.length;
+        const chunk2 = chunks[i];
+        buffer.set(chunk2, offset);
+        offset += chunk2.length;
       }
       return buffer;
     }
@@ -9470,9 +9470,9 @@ var require_readable = __commonJS({
         stream.destroy(err);
       }
     }
-    function consumePush(consume2, chunk) {
-      consume2.length += chunk.length;
-      consume2.body.push(chunk);
+    function consumePush(consume2, chunk2) {
+      consume2.length += chunk2.length;
+      consume2.body.push(chunk2);
     }
     function consumeFinish(consume2, err) {
       if (consume2.body === null) {
@@ -9509,9 +9509,9 @@ var require_util3 = __commonJS({
       let chunks = [];
       let length = 0;
       try {
-        for await (const chunk of body) {
-          chunks.push(chunk);
-          length += chunk.length;
+        for await (const chunk2 of body) {
+          chunks.push(chunk2);
+          length += chunk2.length;
           if (length > CHUNK_LIMIT) {
             chunks = [];
             length = 0;
@@ -9687,8 +9687,8 @@ var require_api_request = __commonJS({
           }
         }
       }
-      onData(chunk) {
-        return this.res.push(chunk);
+      onData(chunk2) {
+        return this.res.push(chunk2);
       }
       onComplete(trailers) {
         util.parseHeaders(trailers, this.trailers);
@@ -9913,9 +9913,9 @@ var require_api_stream = __commonJS({
         const needDrain = res.writableNeedDrain !== void 0 ? res.writableNeedDrain : res._writableState?.needDrain;
         return needDrain !== true;
       }
-      onData(chunk) {
+      onData(chunk2) {
         const { res } = this;
-        return res ? res.write(chunk) : true;
+        return res ? res.write(chunk2) : true;
       }
       onComplete(trailers) {
         const { res } = this;
@@ -10053,9 +10053,9 @@ var require_api_pipeline = __commonJS({
               body.resume();
             }
           },
-          write: (chunk, encoding, callback) => {
+          write: (chunk2, encoding, callback) => {
             const { req } = this;
-            if (req.push(chunk, encoding) || req._readableState.destroyed) {
+            if (req.push(chunk2, encoding) || req._readableState.destroyed) {
               callback();
             } else {
               req[kResume] = callback;
@@ -10121,9 +10121,9 @@ var require_api_pipeline = __commonJS({
         if (!body || typeof body.on !== "function") {
           throw new InvalidReturnValueError("expected Readable");
         }
-        body.on("data", (chunk) => {
+        body.on("data", (chunk2) => {
           const { ret, body: body2 } = this;
-          if (!ret.push(chunk) && body2.pause) {
+          if (!ret.push(chunk2) && body2.pause) {
             body2.pause();
           }
         }).on("error", (err) => {
@@ -10140,9 +10140,9 @@ var require_api_pipeline = __commonJS({
         });
         this.body = body;
       }
-      onData(chunk) {
+      onData(chunk2) {
         const { res } = this;
-        return res.push(chunk);
+        return res.push(chunk2);
       }
       onComplete(trailers) {
         const { res } = this;
@@ -11020,8 +11020,8 @@ var require_pending_interceptors_formatter = __commonJS({
     module2.exports = class PendingInterceptorsFormatter {
       constructor({ disableColors } = {}) {
         this.transform = new Transform({
-          transform(chunk, _enc, cb) {
-            cb(null, chunk);
+          transform(chunk2, _enc, cb) {
+            cb(null, chunk2);
           }
         });
         this.logger = new Console({
@@ -11358,8 +11358,8 @@ var require_dump = __commonJS({
         err = this.#reason ?? err;
         this.#handler.onError(err);
       }
-      onData(chunk) {
-        this.#size = this.#size + chunk.length;
+      onData(chunk2) {
+        this.#size = this.#size + chunk2.length;
         if (this.#size >= this.#maxSize) {
           this.#dumped = true;
           if (this.#aborted) {
@@ -14280,11 +14280,11 @@ var require_fetch = __commonJS({
               });
               return true;
             },
-            onData(chunk) {
+            onData(chunk2) {
               if (fetchParams.controller.dump) {
                 return;
               }
-              const bytes = chunk;
+              const bytes = chunk2;
               timingInfo.encodedBodySize += bytes.byteLength;
               return this.body.push(bytes);
             },
@@ -14811,8 +14811,8 @@ var require_util4 = __commonJS({
           }
           dataURL += ";base64,";
           const decoder = new StringDecoder("latin1");
-          for (const chunk of bytes) {
-            dataURL += btoa2(decoder.write(chunk));
+          for (const chunk2 of bytes) {
+            dataURL += btoa2(decoder.write(chunk2));
           }
           dataURL += btoa2(decoder.end());
           return dataURL;
@@ -14840,8 +14840,8 @@ var require_util4 = __commonJS({
         case "BinaryString": {
           let binaryString = "";
           const decoder = new StringDecoder("latin1");
-          for (const chunk of bytes) {
-            binaryString += decoder.write(chunk);
+          for (const chunk2 of bytes) {
+            binaryString += decoder.write(chunk2);
           }
           binaryString += decoder.end();
           return binaryString;
@@ -17020,8 +17020,8 @@ var require_connection = __commonJS({
         ws[kReadyState] = states.CLOSING;
       }
     }
-    function onSocketData(chunk) {
-      if (!this.ws[kByteParser].write(chunk)) {
+    function onSocketData(chunk2) {
+      if (!this.ws[kByteParser].write(chunk2)) {
         this.pause();
       }
     }
@@ -17099,7 +17099,7 @@ var require_permessage_deflate = __commonJS({
        * @param {boolean} fin Final fragment flag
        * @param {Function} callback Callback function
        */
-      decompress(chunk, fin, callback) {
+      decompress(chunk2, fin, callback) {
         if (!this.#inflate) {
           let windowBits = Z_DEFAULT_WINDOWBITS;
           if (this.#options.serverMaxWindowBits) {
@@ -17132,7 +17132,7 @@ var require_permessage_deflate = __commonJS({
             callback(err);
           });
         }
-        this.#inflate.write(chunk);
+        this.#inflate.write(chunk2);
         if (fin) {
           this.#inflate.write(tail);
         }
@@ -17204,9 +17204,9 @@ var require_receiver = __commonJS({
        * @param {Buffer} chunk
        * @param {() => void} callback
        */
-      _write(chunk, _, callback) {
-        this.#buffers.push(chunk);
-        this.#byteOffset += chunk.length;
+      _write(chunk2, _, callback) {
+        this.#buffers.push(chunk2);
+        this.#byteOffset += chunk2.length;
         this.#loop = true;
         this.run(callback);
       }
@@ -18061,15 +18061,15 @@ var require_eventsource_stream = __commonJS({
        * @param {Function} callback
        * @returns {void}
        */
-      _transform(chunk, _encoding, callback) {
-        if (chunk.length === 0) {
+      _transform(chunk2, _encoding, callback) {
+        if (chunk2.length === 0) {
           callback();
           return;
         }
         if (this.buffer) {
-          this.buffer = Buffer.concat([this.buffer, chunk]);
+          this.buffer = Buffer.concat([this.buffer, chunk2]);
         } else {
-          this.buffer = chunk;
+          this.buffer = chunk2;
         }
         if (this.checkBOM) {
           switch (this.buffer.length) {
@@ -18904,8 +18904,8 @@ var require_lib = __commonJS({
         return __awaiter3(this, void 0, void 0, function* () {
           return new Promise((resolve) => __awaiter3(this, void 0, void 0, function* () {
             let output = Buffer.alloc(0);
-            this.message.on("data", (chunk) => {
-              output = Buffer.concat([output, chunk]);
+            this.message.on("data", (chunk2) => {
+              output = Buffer.concat([output, chunk2]);
             });
             this.message.on("end", () => {
               resolve(output.toString());
@@ -18917,8 +18917,8 @@ var require_lib = __commonJS({
         return __awaiter3(this, void 0, void 0, function* () {
           return new Promise((resolve) => __awaiter3(this, void 0, void 0, function* () {
             const chunks = [];
-            this.message.on("data", (chunk) => {
-              chunks.push(chunk);
+            this.message.on("data", (chunk2) => {
+              chunks.push(chunk2);
             });
             this.message.on("end", () => {
               resolve(Buffer.concat(chunks));
@@ -31147,8 +31147,10 @@ var import_yaml4 = __toESM(require_dist2(), 1);
 // src/sources/github.ts
 var import_node_child_process = require("child_process");
 var API_BASE = "https://api.github.com";
+var GRAPHQL_URL = `${API_BASE}/graphql`;
 var MAX_ATTEMPTS = 4;
 var RETRY_BASE_DELAY_MS = 500;
+var MAX_BLOB_BATCH_SIZE = 100;
 var GithubApiError = class extends Error {
   constructor(status, action) {
     super(`GitHub API error ${status}: failed to ${action}`);
@@ -31156,6 +31158,14 @@ var GithubApiError = class extends Error {
     this.name = "GithubApiError";
   }
   status;
+};
+var GithubGraphqlError = class extends Error {
+  constructor(errors, action) {
+    super(`GitHub GraphQL error: failed to ${action}: ${JSON.stringify(errors)}`);
+    this.errors = errors;
+    this.name = "GithubGraphqlError";
+  }
+  errors;
 };
 var cachedToken;
 function resolveToken() {
@@ -31230,7 +31240,104 @@ async function fetchWithRetry(url, options) {
   }
   throw lastNetworkError instanceof Error ? lastNetworkError : new Error("GitHub API request failed");
 }
-async function ghFileAtSha(sha, path, repo) {
+async function graphqlRequest(query, variables, action) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const response = await fetchWithRetry(GRAPHQL_URL, {
+      method: "POST",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables })
+    });
+    if (!response.ok) throw new GithubApiError(response.status, action);
+    const json = await response.json();
+    if (json.errors?.length) {
+      const rateLimited = json.errors.some((e) => e.type === "RATE_LIMITED");
+      if (rateLimited && attempt < MAX_ATTEMPTS - 1) {
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+        continue;
+      }
+      const onlyNotFound = json.errors.every((e) => e.type === "NOT_FOUND");
+      if (!onlyNotFound) throw new GithubGraphqlError(json.errors, action);
+    }
+    if (json.data === void 0) throw new GithubGraphqlError(json.errors ?? [], action);
+    return json.data;
+  }
+  throw new GithubGraphqlError([], action);
+}
+function chunk(items, size) {
+  const result = [];
+  for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
+  return result;
+}
+var pendingBlobRequests = [];
+var blobFlushScheduled = false;
+function queueBlobRequest(repo, sha, path) {
+  return new Promise((resolve, reject) => {
+    pendingBlobRequests.push({ repo, sha, path, resolve, reject });
+    if (!blobFlushScheduled) {
+      blobFlushScheduled = true;
+      queueMicrotask(flushBlobRequests);
+    }
+  });
+}
+async function flushBlobRequests() {
+  const batch = pendingBlobRequests;
+  pendingBlobRequests = [];
+  blobFlushScheduled = false;
+  await Promise.all(chunk(batch, MAX_BLOB_BATCH_SIZE).map(flushBlobChunk));
+}
+async function flushBlobChunk(requests) {
+  const byRepo = /* @__PURE__ */ new Map();
+  for (const req of requests) {
+    const list = byRepo.get(req.repo) ?? [];
+    list.push(req);
+    byRepo.set(req.repo, list);
+  }
+  const variableDefs = [];
+  const variables = {};
+  const repoBlocks = [];
+  const repoEntries = [...byRepo.entries()];
+  repoEntries.forEach(([repo, reqs], repoIndex) => {
+    const [owner, name] = repo.split("/");
+    const ownerVar = `o${repoIndex}`;
+    const nameVar = `n${repoIndex}`;
+    variableDefs.push(`$${ownerVar}: String!`, `$${nameVar}: String!`);
+    variables[ownerVar] = owner;
+    variables[nameVar] = name;
+    const fields = reqs.map((req, fieldIndex) => {
+      const exprVar = `e${repoIndex}_${fieldIndex}`;
+      variableDefs.push(`$${exprVar}: String!`);
+      variables[exprVar] = `${req.sha}:${req.path}`;
+      return `f${fieldIndex}: object(expression: $${exprVar}) { __typename ... on Blob { text isTruncated } }`;
+    });
+    repoBlocks.push(
+      `r${repoIndex}: repository(owner: $${ownerVar}, name: $${nameVar}) {
+${fields.join("\n")}
+}`
+    );
+  });
+  const query = `query BatchBlobs(${variableDefs.join(", ")}) {
+${repoBlocks.join("\n")}
+}`;
+  let data;
+  try {
+    data = await graphqlRequest(query, variables, "batch-fetch file contents");
+  } catch (err) {
+    for (const req of requests) req.reject(err);
+    return;
+  }
+  repoEntries.forEach(([, reqs], repoIndex) => {
+    const repoData = data[`r${repoIndex}`];
+    reqs.forEach((req, fieldIndex) => {
+      const field = repoData?.[`f${fieldIndex}`];
+      if (!field || field.__typename !== "Blob") {
+        req.resolve(null);
+      } else {
+        req.resolve({ text: field.text ?? "", isTruncated: field.isTruncated ?? false });
+      }
+    });
+  });
+}
+async function ghFileAtShaRest(sha, path, repo) {
   const url = `${API_BASE}/repos/${repo}/contents/${path}?ref=${sha}`;
   const response = await fetchWithRetry(url, {
     headers: headers("application/vnd.github.raw+json")
@@ -31238,6 +31345,12 @@ async function ghFileAtSha(sha, path, repo) {
   if (response.status === 404) return null;
   if (!response.ok) throw new GithubApiError(response.status, `fetch file ${path}@${sha}`);
   return response.text();
+}
+async function ghFileAtSha(sha, path, repo) {
+  const result = await queueBlobRequest(repo, sha, path);
+  if (result === null) return null;
+  if (result.isTruncated) return ghFileAtShaRest(sha, path, repo);
+  return result.text;
 }
 async function ghLsTree(sha, repo) {
   const url = `${API_BASE}/repos/${repo}/git/trees/${sha}?recursive=1`;
@@ -31247,15 +31360,22 @@ async function ghLsTree(sha, repo) {
   const data = await response.json();
   return data.tree.filter((item) => item.type === "blob").map((item) => item.path);
 }
-async function getPrShas(prNumber, repo) {
-  const url = `${API_BASE}/repos/${repo}/pulls/${prNumber}`;
-  const response = await fetchWithRetry(url, { headers: headers() });
-  if (!response.ok) {
-    throw new GithubApiError(response.status, `fetch PR #${prNumber}`);
+var PR_SHAS_QUERY = `
+  query PrShas($owner: String!, $name: String!, $number: Int!) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        baseRefOid
+        headRefOid
+      }
+    }
   }
-  const data = await response.json();
-  const baseSha = data.base.sha;
-  const headSha = data.head.sha;
+`;
+async function getPrShas(prNumber, repo) {
+  const [owner, name] = repo.split("/");
+  const data = await graphqlRequest(PR_SHAS_QUERY, { owner, name, number: Number(prNumber) }, `fetch PR #${prNumber}`);
+  const pullRequest = data.repository?.pullRequest;
+  if (!pullRequest) throw new GithubApiError(404, `fetch PR #${prNumber}`);
+  const { baseRefOid: baseSha, headRefOid: headSha } = pullRequest;
   const compareUrl = `${API_BASE}/repos/${repo}/compare/${baseSha}...${headSha}`;
   const compareResp = await fetchWithRetry(compareUrl, { headers: headers() });
   if (compareResp.ok) {
