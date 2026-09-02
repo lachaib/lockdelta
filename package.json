@@ -43,7 +43,7 @@
     "poetry",
     "pdm"
   ],
-  "packageManager": "pnpm@11.0.9",
+  "packageManager": "pnpm@12.2.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/lachaib/lockdelta"
