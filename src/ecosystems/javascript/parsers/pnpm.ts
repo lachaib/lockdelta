@@ -1,4 +1,4 @@
-import { parse as parseYaml } from 'yaml';
+import { parseAllDocuments } from 'yaml';
 import type { PackageEntry } from '../../../types.js';
 
 interface PnpmPackageResolution {
@@ -16,7 +16,7 @@ interface PnpmLock {
 }
 
 export function parsePnpmLock(content: string): Record<string, PackageEntry> {
-  const data = parseYaml(content) as PnpmLock;
+  const data = parseAllDocuments(content)[0]?.toJS() as PnpmLock;
   if (!data?.packages) return {};
 
   const lockfileVersion = parseLockfileVersion(data.lockfileVersion);

@@ -26768,7 +26768,7 @@ var require_public_api = __commonJS({
       const lineCounter$1 = options.lineCounter || prettyErrors && new lineCounter.LineCounter() || null;
       return { lineCounter: lineCounter$1, prettyErrors };
     }
-    function parseAllDocuments(source, options = {}) {
+    function parseAllDocuments2(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -26843,7 +26843,7 @@ var require_public_api = __commonJS({
       return new Document.Document(value, _replacer, options).toString(options);
     }
     exports2.parse = parse6;
-    exports2.parseAllDocuments = parseAllDocuments;
+    exports2.parseAllDocuments = parseAllDocuments2;
     exports2.parseDocument = parseDocument;
     exports2.stringify = stringify2;
   }
@@ -31774,7 +31774,7 @@ function resolvedToOrigin(resolved) {
 // src/ecosystems/javascript/parsers/pnpm.ts
 var import_yaml2 = __toESM(require_dist2(), 1);
 function parsePnpmLock(content) {
-  const data = (0, import_yaml2.parse)(content);
+  const data = (0, import_yaml2.parseAllDocuments)(content)[0]?.toJS();
   if (!data?.packages) return {};
   const lockfileVersion = parseLockfileVersion(data.lockfileVersion);
   if (lockfileVersion >= 9) {
