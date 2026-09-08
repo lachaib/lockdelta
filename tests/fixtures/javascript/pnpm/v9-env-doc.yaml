@@ -1,0 +1,84 @@
+---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    configDependencies: {}
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.2.1
+        version: 12.2.1
+
+packages:
+
+  '@pnpm/exe.darwin-arm64@12.2.1':
+    resolution: {integrity: sha512-env1}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.linux-x64@12.2.1':
+    resolution: {integrity: sha512-env2}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  pnpm@12.2.1:
+    resolution: {integrity: sha512-env3}
+    engines: {node: '>=18.*'}
+    hasBin: true
+
+snapshots:
+
+  '@pnpm/exe.darwin-arm64@12.2.1':
+    optional: true
+
+  '@pnpm/exe.linux-x64@12.2.1':
+    optional: true
+
+  pnpm@12.2.1:
+    optionalDependencies:
+      '@pnpm/exe.darwin-arm64': 12.2.1
+      '@pnpm/exe.linux-x64': 12.2.1
+
+---
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+  .:
+    dependencies:
+      express:
+        specifier: ^4.18.2
+        version: 4.18.2
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.2.2
+
+packages:
+  express@4.18.2:
+    resolution: {integrity: sha512-abc}
+    engines: {node: '>= 0.10.0'}
+  lodash@4.17.21:
+    resolution: {integrity: sha512-def}
+  typescript@5.2.2:
+    resolution: {integrity: sha512-ghi}
+    engines: {node: '>=14.17'}
+    hasBin: true
+  accepts@1.3.8:
+    resolution: {integrity: sha512-jkl}
+
+snapshots:
+  express@4.18.2:
+    dependencies:
+      accepts: 1.3.8
+  lodash@4.17.21: {}
+  typescript@5.2.2: {}
+  accepts@1.3.8: {}

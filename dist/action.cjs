@@ -31774,7 +31774,7 @@ function resolvedToOrigin(resolved) {
 // src/ecosystems/javascript/parsers/pnpm.ts
 var import_yaml2 = __toESM(require_dist2(), 1);
 function parsePnpmLock(content) {
-  const data = (0, import_yaml2.parseAllDocuments)(content)[0]?.toJS();
+  const data = (0, import_yaml2.parseAllDocuments)(content).at(-1)?.toJS();
   if (!data?.packages) return {};
   const lockfileVersion = parseLockfileVersion(data.lockfileVersion);
   if (lockfileVersion >= 9) {

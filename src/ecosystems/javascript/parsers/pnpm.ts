@@ -16,7 +16,7 @@ interface PnpmLock {
 }
 
 export function parsePnpmLock(content: string): Record<string, PackageEntry> {
-  const data = parseAllDocuments(content)[0]?.toJS() as PnpmLock;
+  const data = parseAllDocuments(content).at(-1)?.toJS() as PnpmLock;
   if (!data?.packages) return {};
 
   const lockfileVersion = parseLockfileVersion(data.lockfileVersion);
