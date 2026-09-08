@@ -49,6 +49,43 @@ describe('pnpm-lock.yaml parser', () => {
     });
   });
 
+  describe('lockfile v9 with a pnpm >=12 env document', () => {
+    it('reads the project document, not the leading env document', () => {
+      const pkgs = parsePnpmLock(fixture('v9-env-doc.yaml'));
+      expect(pkgs.express?.version).toBe('4.18.2');
+      expect(pkgs.lodash?.version).toBe('4.17.21');
+      expect(pkgs.typescript?.version).toBe('5.2.2');
+      expect(pkgs.accepts?.version).toBe('1.3.8');
+    });
+
+    it('excludes the package manager pinned by the env document', () => {
+      const pkgs = parsePnpmLock(fixture('v9-env-doc.yaml'));
+      expect('pnpm' in pkgs).toBe(false);
+      expect('@pnpm/exe.darwin-arm64' in pkgs).toBe(false);
+      expect('@pnpm/exe.linux-x64' in pkgs).toBe(false);
+      expect(Object.keys(pkgs)).toHaveLength(4);
+    });
+
+    it('parses identically to the same lockfile without an env document', () => {
+      expect(parsePnpmLock(fixture('v9-env-doc.yaml'))).toEqual(
+        parsePnpmLock(fixture('v9-base.yaml')),
+      );
+    });
+
+    it('reports no change when only the env document is added', () => {
+      // The pnpm 11 -> 12 migration adds the env document and nothing else.
+      const base = parsePnpmLock(fixture('v9-base.yaml'));
+      const head = parsePnpmLock(fixture('v9-env-doc.yaml'));
+      const changes = diffPackages(
+        base,
+        head,
+        directDeps(['express', 'lodash', 'typescript']),
+        normalizeJsName,
+      );
+      expect(changes).toEqual([]);
+    });
+  });
+
   describe('lockfile v6', () => {
     it('parses packages from v6 format (/@name@version keys)', () => {
       const pkgs = parsePnpmLock(fixture('v6-base.yaml'));
