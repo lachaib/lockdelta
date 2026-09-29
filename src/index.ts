@@ -1,4 +1,5 @@
-import { buildDiffReport, collectLockfileEntries } from './core/report.js';
+import { resolveLocalPair, workspaceFromPath } from './core/discovery.js';
+import { buildDiffReport, buildLockfileEntry, collectLockfileEntries } from './core/report.js';
 import { gitLsTree, gitShow } from './sources/git.js';
 import { detectRepo, getPrShas, ghFileAtSha, ghLsTree } from './sources/github.js';
 import { readLocalFile } from './sources/local.js';
@@ -57,23 +58,17 @@ export async function run(options: RunOptions = {}): Promise<DiffReport> {
     const oldPath = options.oldFile;
     const newPath = options.newFile;
 
+    const pair = resolveLocalPair(oldPath, newPath, lockfileType);
+    if (pair.migrationNote) onNote?.(pair.migrationNote);
+
     const getBase: FileSource = (path) =>
       Promise.resolve(path === oldPath ? readLocalFile(oldPath) : null);
-    const getHead: FileSource = (path) =>
-      Promise.resolve(path === newPath ? readLocalFile(newPath) : null);
+    // Head side also serves the manifest sitting next to the new lockfile.
+    const getHead: FileSource = (path) => Promise.resolve(readLocalFile(path));
 
-    const lockfiles = await collectLockfileEntries({
-      getBase,
-      getHead,
-      allBasePaths: [oldPath],
-      allHeadPaths: [newPath],
-      lockfile: newPath,
-      lockfileType,
-      onNote,
-    });
-
-    if (lockfiles.length === 0) throw new Error('No supported lockfiles found');
-    return buildDiffReport(lockfiles, 'local_old', 'local_new');
+    const entry = await buildLockfileEntry(pair, workspaceFromPath(newPath), getBase, getHead);
+    if (!entry) throw new Error('No supported lockfiles found');
+    return buildDiffReport([entry], 'local_old', 'local_new');
   }
 
   const apiShas = await resolveApiShas(options);

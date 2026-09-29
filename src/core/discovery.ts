@@ -69,6 +69,49 @@ function lockfilePriority(path: string): number {
   return LOCKFILE_PRIORITY[posix.basename(path)] ?? 99;
 }
 
+/** Pair two arbitrary local files; types come from `lockfileType` or either filename. */
+export function resolveLocalPair(
+  oldPath: string,
+  newPath: string,
+  lockfileType?: string,
+): LockfilePair {
+  const oldInfo = detectLockfileInfo(oldPath);
+  const newInfo = detectLockfileInfo(newPath);
+
+  if (lockfileType) {
+    const ecosystem = getAllEcosystems().find((e) =>
+      e.supportedLockfiles.some((l) => l.type === lockfileType),
+    );
+    if (!ecosystem) throw new Error(`Unknown lockfile type: ${lockfileType}`);
+    return {
+      basePath: oldPath,
+      baseType: lockfileType,
+      headPath: newPath,
+      headType: lockfileType,
+      migrationNote: null,
+      ecosystemName: ecosystem.name,
+    };
+  }
+
+  const reference = newInfo ?? oldInfo;
+  if (!reference) {
+    throw new Error(`Cannot determine lockfile type for ${oldPath} / ${newPath} — use --type`);
+  }
+  const sameEcosystem = (info: LockfileInfo | null) =>
+    info && info.ecosystemName === reference.ecosystemName ? info.type : reference.type;
+  const baseType = sameEcosystem(oldInfo);
+  const headType = sameEcosystem(newInfo);
+
+  return {
+    basePath: oldPath,
+    baseType,
+    headPath: newPath,
+    headType,
+    migrationNote: baseType !== headType ? `lockfile migration: ${baseType} → ${headType}` : null,
+    ecosystemName: reference.ecosystemName,
+  };
+}
+
 export function resolveLockfilePair(
   baseFiles: LockfileInfo[],
   headFiles: LockfileInfo[],

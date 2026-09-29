@@ -203,8 +203,10 @@ lockdelta --base main --head my-feature-branch
 # Compare a GitHub PR by number
 GITHUB_TOKEN=ghp_... lockdelta --pr 123 --repo owner/myrepo
 
-# Compare two local lockfiles directly
-lockdelta --old old/uv.lock --new new/uv.lock
+# Compare two local lockfiles directly (type is inferred from either filename,
+# direct deps are read from the manifest next to --new)
+git show HEAD:uv.lock > /tmp/uv.lock.old
+lockdelta --old /tmp/uv.lock.old --new uv.lock
 
 # Filter to direct dependencies only
 lockdelta --pr 123 | jq '.lockfiles[].changes[] | select(.is_direct)'
