@@ -31573,8 +31573,8 @@ ${removed.map(fmt).join("\n")}`);
   return sections.join("\n\n");
 }
 
-// src/core/report.ts
-var import_node_path2 = require("path");
+// src/core/discovery.ts
+var import_node_path = require("path");
 
 // src/ecosystems/deno/deno-json.ts
 function normalizeDenoName(name) {
@@ -32950,58 +32950,7 @@ registerEcosystem(javascriptEcosystem);
 registerEcosystem(denoEcosystem);
 registerEcosystem(phpEcosystem);
 
-// src/core/diff.ts
-function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
-  const allNames = /* @__PURE__ */ new Set([...Object.keys(oldPkgs), ...Object.keys(newPkgs)]);
-  const changes = [];
-  for (const name of [...allNames].sort()) {
-    const inOld = name in oldPkgs;
-    const inNew = name in newPkgs;
-    if (inOld && inNew && oldPkgs[name].version === newPkgs[name].version) continue;
-    const normalized = normalizeName(name);
-    const isProd = directDeps.prod.has(normalized);
-    const isDirectDev = directDeps.dev.has(normalized) && !isProd;
-    const isTransitiveDev = !isProd && !isDirectDev && (newPkgs[name]?.dev ?? oldPkgs[name]?.dev) === true;
-    const isDev = isDirectDev || isTransitiveDev;
-    const base = { name, is_direct: isProd || isDirectDev, is_dev: isDev };
-    let change;
-    if (!inOld) {
-      change = {
-        ...base,
-        change_type: "added",
-        old_version: null,
-        new_version: newPkgs[name].version
-      };
-      if (newPkgs[name].registryUrl !== void 0)
-        change.new_registry_url = newPkgs[name].registryUrl;
-    } else if (!inNew) {
-      change = {
-        ...base,
-        change_type: "removed",
-        old_version: oldPkgs[name].version,
-        new_version: null
-      };
-      if (oldPkgs[name].registryUrl !== void 0)
-        change.old_registry_url = oldPkgs[name].registryUrl;
-    } else {
-      change = {
-        ...base,
-        change_type: "updated",
-        old_version: oldPkgs[name].version,
-        new_version: newPkgs[name].version
-      };
-      if (oldPkgs[name].registryUrl !== void 0)
-        change.old_registry_url = oldPkgs[name].registryUrl;
-      if (newPkgs[name].registryUrl !== void 0)
-        change.new_registry_url = newPkgs[name].registryUrl;
-    }
-    changes.push(change);
-  }
-  return changes;
-}
-
 // src/core/discovery.ts
-var import_node_path = require("path");
 function workspaceFromPath(filePath) {
   const parent = import_node_path.posix.dirname(filePath);
   return parent === "." || parent === "" ? "." : parent;
@@ -33054,6 +33003,39 @@ var LOCKFILE_PRIORITY = {
 function lockfilePriority(path) {
   return LOCKFILE_PRIORITY[import_node_path.posix.basename(path)] ?? 99;
 }
+function resolveLocalPair(oldPath, newPath, lockfileType) {
+  const oldInfo = detectLockfileInfo(oldPath);
+  const newInfo = detectLockfileInfo(newPath);
+  if (lockfileType) {
+    const ecosystem = getAllEcosystems().find(
+      (e) => e.supportedLockfiles.some((l) => l.type === lockfileType)
+    );
+    if (!ecosystem) throw new Error(`Unknown lockfile type: ${lockfileType}`);
+    return {
+      basePath: oldPath,
+      baseType: lockfileType,
+      headPath: newPath,
+      headType: lockfileType,
+      migrationNote: null,
+      ecosystemName: ecosystem.name
+    };
+  }
+  const reference = newInfo ?? oldInfo;
+  if (!reference) {
+    throw new Error(`Cannot determine lockfile type for ${oldPath} / ${newPath} \u2014 use --type`);
+  }
+  const sameEcosystem = (info) => info && info.ecosystemName === reference.ecosystemName ? info.type : reference.type;
+  const baseType = sameEcosystem(oldInfo);
+  const headType = sameEcosystem(newInfo);
+  return {
+    basePath: oldPath,
+    baseType,
+    headPath: newPath,
+    headType,
+    migrationNote: baseType !== headType ? `lockfile migration: ${baseType} \u2192 ${headType}` : null,
+    ecosystemName: reference.ecosystemName
+  };
+}
 function resolveLockfilePair(baseFiles, headFiles) {
   const headByPath = new Map(headFiles.map((f) => [f.path, f]));
   const common = baseFiles.filter((f) => headByPath.has(f.path));
@@ -33104,6 +33086,59 @@ function resolveLockfilePair(baseFiles, headFiles) {
     };
   }
   return null;
+}
+
+// src/core/report.ts
+var import_node_path2 = require("path");
+
+// src/core/diff.ts
+function diffPackages(oldPkgs, newPkgs, directDeps, normalizeName) {
+  const allNames = /* @__PURE__ */ new Set([...Object.keys(oldPkgs), ...Object.keys(newPkgs)]);
+  const changes = [];
+  for (const name of [...allNames].sort()) {
+    const inOld = name in oldPkgs;
+    const inNew = name in newPkgs;
+    if (inOld && inNew && oldPkgs[name].version === newPkgs[name].version) continue;
+    const normalized = normalizeName(name);
+    const isProd = directDeps.prod.has(normalized);
+    const isDirectDev = directDeps.dev.has(normalized) && !isProd;
+    const isTransitiveDev = !isProd && !isDirectDev && (newPkgs[name]?.dev ?? oldPkgs[name]?.dev) === true;
+    const isDev = isDirectDev || isTransitiveDev;
+    const base = { name, is_direct: isProd || isDirectDev, is_dev: isDev };
+    let change;
+    if (!inOld) {
+      change = {
+        ...base,
+        change_type: "added",
+        old_version: null,
+        new_version: newPkgs[name].version
+      };
+      if (newPkgs[name].registryUrl !== void 0)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    } else if (!inNew) {
+      change = {
+        ...base,
+        change_type: "removed",
+        old_version: oldPkgs[name].version,
+        new_version: null
+      };
+      if (oldPkgs[name].registryUrl !== void 0)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+    } else {
+      change = {
+        ...base,
+        change_type: "updated",
+        old_version: oldPkgs[name].version,
+        new_version: newPkgs[name].version
+      };
+      if (oldPkgs[name].registryUrl !== void 0)
+        change.old_registry_url = oldPkgs[name].registryUrl;
+      if (newPkgs[name].registryUrl !== void 0)
+        change.new_registry_url = newPkgs[name].registryUrl;
+    }
+    changes.push(change);
+  }
+  return changes;
 }
 
 // src/core/report.ts
@@ -33266,19 +33301,13 @@ async function run(options = {}) {
   if (options.oldFile && options.newFile) {
     const oldPath = options.oldFile;
     const newPath = options.newFile;
+    const pair = resolveLocalPair(oldPath, newPath, lockfileType);
+    if (pair.migrationNote) onNote?.(pair.migrationNote);
     const getBase2 = (path) => Promise.resolve(path === oldPath ? readLocalFile(oldPath) : null);
-    const getHead2 = (path) => Promise.resolve(path === newPath ? readLocalFile(newPath) : null);
-    const lockfiles2 = await collectLockfileEntries({
-      getBase: getBase2,
-      getHead: getHead2,
-      allBasePaths: [oldPath],
-      allHeadPaths: [newPath],
-      lockfile: newPath,
-      lockfileType,
-      onNote
-    });
-    if (lockfiles2.length === 0) throw new Error("No supported lockfiles found");
-    return buildDiffReport(lockfiles2, "local_old", "local_new");
+    const getHead2 = (path) => Promise.resolve(readLocalFile(path));
+    const entry = await buildLockfileEntry(pair, workspaceFromPath(newPath), getBase2, getHead2);
+    if (!entry) throw new Error("No supported lockfiles found");
+    return buildDiffReport([entry], "local_old", "local_new");
   }
   const apiShas = await resolveApiShas(options);
   if (apiShas) {
