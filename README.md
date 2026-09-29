@@ -188,6 +188,7 @@ npx lockdelta [options]
 --type <type>        Force lockfile type: uv, poetry, pdm, npm, yarn, pnpm, bun, deno, composer
 --old <path>         Old lockfile path (local file comparison mode)
 --new <path>         New lockfile path (local file comparison mode)
+--worktree           Compare --base (default: HEAD) against uncommitted files in the working tree
 --output <path>      Write JSON to file instead of stdout
 ```
 
@@ -199,6 +200,9 @@ lockdelta
 
 # Compare two specific refs
 lockdelta --base main --head my-feature-branch
+
+# Preview an upgrade before committing it
+uv lock --upgrade && lockdelta --worktree
 
 # Compare a GitHub PR by number
 GITHUB_TOKEN=ghp_... lockdelta --pr 123 --repo owner/myrepo
@@ -224,6 +228,9 @@ const report = await run({ prNumber: '123', repo: 'owner/myrepo' });
 
 // Compare git refs
 const report = await run({ base: 'main', head: 'my-branch' });
+
+// Compare HEAD against the working tree
+const report = await run({ worktree: true });
 
 // Compare local files
 const report = await run({ oldFile: './old.lock', newFile: './new.lock' });

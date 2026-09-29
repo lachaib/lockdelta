@@ -26902,7 +26902,7 @@ var require_dist2 = __commonJS({
 });
 
 // src/action.ts
-var import_node_fs2 = require("fs");
+var import_node_fs3 = require("fs");
 
 // node_modules/.pnpm/@actions+core@3.0.1/node_modules/@actions/core/lib/command.js
 var os = __toESM(require("os"), 1);
@@ -33247,6 +33247,7 @@ function buildDiffReport(lockfiles, baseRef, headRef) {
 
 // src/sources/git.ts
 var import_node_child_process2 = require("child_process");
+var import_node_fs = require("fs");
 function gitShow(ref, path) {
   try {
     const result = (0, import_node_child_process2.execFileSync)("git", ["show", `${ref}:${path}`], {
@@ -33269,12 +33270,23 @@ function gitLsTree(ref) {
     return [];
   }
 }
+function gitLsFiles() {
+  try {
+    const result = (0, import_node_child_process2.execFileSync)("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    return result.trim().split("\n").filter((p) => p && (0, import_node_fs.existsSync)(p));
+  } catch {
+    return [];
+  }
+}
 
 // src/sources/local.ts
-var import_node_fs = require("fs");
+var import_node_fs2 = require("fs");
 function readLocalFile(path) {
   try {
-    return (0, import_node_fs.readFileSync)(path, "utf-8");
+    return (0, import_node_fs2.readFileSync)(path, "utf-8");
   } catch {
     return null;
   }
@@ -33330,6 +33342,20 @@ async function run(options = {}) {
     if (lockfiles2.length === 0) throw new Error("No supported lockfiles found");
     return buildDiffReport(lockfiles2, baseSha, headSha);
   }
+  if (options.worktree) {
+    const baseRef2 = options.base ?? "HEAD";
+    const lockfiles2 = await collectLockfileEntries({
+      getBase: (path) => Promise.resolve(gitShow(baseRef2, path)),
+      getHead: (path) => Promise.resolve(readLocalFile(path)),
+      allBasePaths: gitLsTree(baseRef2),
+      allHeadPaths: gitLsFiles(),
+      lockfile,
+      lockfileType,
+      onNote
+    });
+    if (lockfiles2.length === 0) throw new Error("No supported lockfiles found");
+    return buildDiffReport(lockfiles2, baseRef2, "worktree");
+  }
   const baseRef = options.base ?? "HEAD~1";
   const headRef = options.head ?? "HEAD";
   const getBase = (path) => Promise.resolve(gitShow(baseRef, path));
@@ -33383,7 +33409,7 @@ var NULL_SHA = "0000000000000000000000000000000000000000";
     const hasChanges = report.summary.total_changes > 0;
     setOutput("has-changes", String(hasChanges));
     const jsonToFile = getInput("json-to-file");
-    if (jsonToFile) (0, import_node_fs2.writeFileSync)(jsonToFile, json);
+    if (jsonToFile) (0, import_node_fs3.writeFileSync)(jsonToFile, json);
     const filtersInput = getInput("filters");
     const filtersFromPath = getInput("filters-from");
     if (filtersInput || filtersFromPath) {
@@ -33391,7 +33417,7 @@ var NULL_SHA = "0000000000000000000000000000000000000000";
       if (filtersFromPath) {
         let content;
         try {
-          content = (0, import_node_fs2.readFileSync)(filtersFromPath, "utf-8");
+          content = (0, import_node_fs3.readFileSync)(filtersFromPath, "utf-8");
         } catch {
           throw new Error(`filters-from: could not read file '${filtersFromPath}'`);
         }
@@ -33427,7 +33453,7 @@ var NULL_SHA = "0000000000000000000000000000000000000000";
       if (wantsMarkdown) {
         setOutput("markdown", md);
         const markdownToFile = getInput("markdown-to-file");
-        if (markdownToFile) (0, import_node_fs2.writeFileSync)(markdownToFile, md);
+        if (markdownToFile) (0, import_node_fs3.writeFileSync)(markdownToFile, md);
       }
       if (shouldPost) {
         await postPrComment(md, prNumber, repo || void 0);

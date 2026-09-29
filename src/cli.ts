@@ -32,6 +32,10 @@ program
   .option('--type <type>', 'Force lockfile type: uv, poetry, pdm. Only used with --lockfile.')
   .option('--old <path>', 'Old lockfile path (local file comparison mode).')
   .option('--new <path>', 'New lockfile path (local file comparison mode).')
+  .option(
+    '--worktree',
+    'Compare --base (default: HEAD) against uncommitted files in the working tree.',
+  )
   .option('--output <path>', 'Write JSON report to file instead of stdout.')
   .action(async (opts) => {
     try {
@@ -44,6 +48,7 @@ program
         lockfileType: opts.type,
         oldFile: opts.old,
         newFile: opts.new,
+        worktree: opts.worktree,
         onNote: (msg) => process.stderr.write(`Note: ${msg}\n`),
       });
 

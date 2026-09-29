@@ -1,6 +1,6 @@
 import { resolveLocalPair, workspaceFromPath } from './core/discovery.js';
 import { buildDiffReport, buildLockfileEntry, collectLockfileEntries } from './core/report.js';
-import { gitLsTree, gitShow } from './sources/git.js';
+import { gitLsFiles, gitLsTree, gitShow } from './sources/git.js';
 import { detectRepo, getPrShas, ghFileAtSha, ghLsTree } from './sources/github.js';
 import { readLocalFile } from './sources/local.js';
 import type { DiffReport, FileSource } from './types.js';
@@ -30,6 +30,8 @@ export interface RunOptions {
   lockfileType?: string;
   oldFile?: string;
   newFile?: string;
+  /** Compare `base` (default HEAD) against uncommitted files in the working tree. */
+  worktree?: boolean;
   onNote?: (message: string) => void;
 }
 
@@ -96,6 +98,23 @@ export async function run(options: RunOptions = {}): Promise<DiffReport> {
 
     if (lockfiles.length === 0) throw new Error('No supported lockfiles found');
     return buildDiffReport(lockfiles, baseSha, headSha);
+  }
+
+  if (options.worktree) {
+    const baseRef = options.base ?? 'HEAD';
+
+    const lockfiles = await collectLockfileEntries({
+      getBase: (path) => Promise.resolve(gitShow(baseRef, path)),
+      getHead: (path) => Promise.resolve(readLocalFile(path)),
+      allBasePaths: gitLsTree(baseRef),
+      allHeadPaths: gitLsFiles(),
+      lockfile,
+      lockfileType,
+      onNote,
+    });
+
+    if (lockfiles.length === 0) throw new Error('No supported lockfiles found');
+    return buildDiffReport(lockfiles, baseRef, 'worktree');
   }
 
   // Git ref mode: local CLI usage
