@@ -48,13 +48,22 @@ export async function findLockfiles(getFile: FileSource): Promise<LockfileInfo[]
   return results.filter((r): r is LockfileInfo => r !== null);
 }
 
-export function groupByWorkspace(lockfiles: LockfileInfo[]): Map<string, LockfileInfo[]> {
-  const result = new Map<string, LockfileInfo[]>();
+export interface LockfileGroup {
+  workspace: string;
+  ecosystemName: string;
+  files: LockfileInfo[];
+}
+
+export function groupByWorkspaceAndEcosystem(
+  lockfiles: LockfileInfo[],
+): Map<string, LockfileGroup> {
+  const result = new Map<string, LockfileGroup>();
   for (const lf of lockfiles) {
-    const ws = workspaceFromPath(lf.path);
-    const existing = result.get(ws) ?? [];
-    existing.push(lf);
-    result.set(ws, existing);
+    const workspace = workspaceFromPath(lf.path);
+    const key = `${workspace}\0${lf.ecosystemName}`;
+    const group = result.get(key) ?? { workspace, ecosystemName: lf.ecosystemName, files: [] };
+    group.files.push(lf);
+    result.set(key, group);
   }
   return result;
 }

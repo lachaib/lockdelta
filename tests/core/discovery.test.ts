@@ -3,7 +3,7 @@ import {
   detectLockfileInfo,
   findAllLockfiles,
   findLockfiles,
-  groupByWorkspace,
+  groupByWorkspaceAndEcosystem,
   workspaceFromPath,
 } from '../../src/core/discovery.js';
 
@@ -69,20 +69,28 @@ describe('findAllLockfiles', () => {
   });
 });
 
-describe('groupByWorkspace', () => {
-  it('groups lockfiles by their parent directory', () => {
+describe('groupByWorkspaceAndEcosystem', () => {
+  it('groups lockfiles by directory and ecosystem', () => {
     const lockfiles = [
       { path: 'uv.lock', type: 'uv', ecosystemName: 'python' },
       { path: 'services/api/uv.lock', type: 'uv', ecosystemName: 'python' },
       { path: 'services/worker/poetry.lock', type: 'poetry', ecosystemName: 'python' },
     ];
-    const grouped = groupByWorkspace(lockfiles);
-    expect(grouped.size).toBe(3);
-    expect(grouped.get('.')?.map((l) => l.path)).toEqual(['uv.lock']);
-    expect(grouped.get('services/api')?.map((l) => l.path)).toEqual(['services/api/uv.lock']);
-    expect(grouped.get('services/worker')?.map((l) => l.path)).toEqual([
-      'services/worker/poetry.lock',
-    ]);
+    const grouped = [...groupByWorkspaceAndEcosystem(lockfiles).values()];
+    expect(grouped).toHaveLength(3);
+    expect(grouped.map((g) => g.workspace)).toEqual(['.', 'services/api', 'services/worker']);
+  });
+
+  it('keeps lockfiles from different ecosystems in the same directory apart', () => {
+    const lockfiles = [
+      { path: 'composer.lock', type: 'composer', ecosystemName: 'php' },
+      { path: 'package-lock.json', type: 'npm', ecosystemName: 'npm' },
+      { path: 'uv.lock', type: 'uv', ecosystemName: 'python' },
+      { path: 'poetry.lock', type: 'poetry', ecosystemName: 'python' },
+    ];
+    const grouped = [...groupByWorkspaceAndEcosystem(lockfiles).values()];
+    expect(grouped).toHaveLength(3);
+    expect(grouped.find((g) => g.ecosystemName === 'python')?.files).toHaveLength(2);
   });
 });
 

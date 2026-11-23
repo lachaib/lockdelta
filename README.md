@@ -2,7 +2,7 @@
 
 Diff dependency lockfiles between git refs or PRs and emit a structured report. Works as a **GitHub Action**, **CLI**, or **Node.js library**.
 
-Supports Python, JavaScript, Deno, and PHP ecosystems — including automatic detection of tool migrations (e.g. poetry → uv). Monorepo-aware: all lockfiles in the repository are auto-discovered.
+Supports Python, JavaScript, Deno, and PHP ecosystems — including automatic detection of tool migrations (e.g. poetry → uv). Monorepo-aware: all lockfiles in the repository are auto-discovered, including several ecosystems in the same directory (e.g. `composer.lock` + `package-lock.json`).
 
 ---
 
@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Diff dependencies
         id: lockdelta
-        uses: lachaib/lockdelta@v1
+        uses: lachaib/lockdelta@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -77,7 +77,7 @@ When `markdown: 'true'` or `post-comment` is not `'false'`, lockdelta generates 
 ```yaml
 - name: Diff dependencies
   id: lockdelta
-  uses: lachaib/lockdelta@v1
+  uses: lachaib/lockdelta@v0
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   with:
@@ -108,7 +108,7 @@ Inspired by [dorny/paths-filter](https://github.com/dorny/paths-filter), the `fi
 ```yaml
 - name: Diff dependencies
   id: lockdelta
-  uses: lachaib/lockdelta@v1
+  uses: lachaib/lockdelta@v0
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   with:
@@ -148,7 +148,7 @@ jobs:
     steps:
       - name: Diff dependencies
         id: lockdelta
-        uses: lachaib/lockdelta@v1
+        uses: lachaib/lockdelta@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
