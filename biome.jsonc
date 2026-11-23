@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "files": {
     "maxSize": 2000000,
     "includes": [
@@ -8,7 +8,10 @@
       "!!**/dist", // exclude dist output
       "!!**/node_modules", // exclude dependencies
       "!!**/tests/fixtures", // exclude test fixtures
-      "!!**/.claude" // exclude Claude config/memory
+      "!!**/.claude", // exclude Claude config/memory
+      "!**/*.md", // markdown and YAML are not formatted by Biome in this repo
+      "!**/*.yml",
+      "!**/*.yaml"
     ]
   },
   "assist": {
@@ -21,7 +24,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "formatter": {
