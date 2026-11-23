@@ -18,7 +18,7 @@ jobs:
     env:
       CAN_COMMENT: ${{ github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -44,7 +44,7 @@ jobs:
     needs: dependency-scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
 
