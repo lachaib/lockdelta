@@ -72,6 +72,10 @@ const LOCKFILE_PRIORITY: Record<string, number> = {
   'uv.lock': 0,
   'poetry.lock': 1,
   'pdm.lock': 2,
+  'pnpm-lock.yaml': 0,
+  'yarn.lock': 1,
+  'bun.lock': 2,
+  'package-lock.json': 3,
 };
 
 function lockfilePriority(path: string): number {

@@ -4,6 +4,7 @@ import {
   findAllLockfiles,
   findLockfiles,
   groupByWorkspaceAndEcosystem,
+  resolveLockfilePair,
   workspaceFromPath,
 } from '../../src/core/discovery.js';
 
@@ -118,5 +119,24 @@ describe('findLockfiles (probe root-level)', () => {
     const found = await findLockfiles(getFile);
     expect(found.map((f) => f.path)).toContain('uv.lock');
     expect(found.map((f) => f.path)).toContain('poetry.lock');
+  });
+});
+
+describe('resolveLockfilePair priority', () => {
+  const js = (path: string, type: string) => ({ path, type, ecosystemName: 'javascript' });
+
+  it.each([
+    [['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock'], 'pnpm-lock.yaml'],
+    [['package-lock.json', 'yarn.lock', 'bun.lock'], 'yarn.lock'],
+    [['package-lock.json', 'bun.lock'], 'bun.lock'],
+  ])('picks the preferred lockfile among %j', (names, expected) => {
+    const types: Record<string, string> = {
+      'package-lock.json': 'npm',
+      'yarn.lock': 'yarn',
+      'pnpm-lock.yaml': 'pnpm',
+      'bun.lock': 'bun',
+    };
+    const files = names.map((n) => js(n, types[n]));
+    expect(resolveLockfilePair(files, files)?.headPath).toBe(expected);
   });
 });
