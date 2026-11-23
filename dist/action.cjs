@@ -32985,13 +32985,14 @@ async function findLockfiles(getFile) {
   );
   return results.filter((r) => r !== null);
 }
-function groupByWorkspace(lockfiles) {
+function groupByWorkspaceAndEcosystem(lockfiles) {
   const result = /* @__PURE__ */ new Map();
   for (const lf of lockfiles) {
-    const ws = workspaceFromPath(lf.path);
-    const existing = result.get(ws) ?? [];
-    existing.push(lf);
-    result.set(ws, existing);
+    const workspace = workspaceFromPath(lf.path);
+    const key = `${workspace}\0${lf.ecosystemName}`;
+    const group = result.get(key) ?? { workspace, ecosystemName: lf.ecosystemName, files: [] };
+    group.files.push(lf);
+    result.set(key, group);
   }
   return result;
 }
@@ -33209,17 +33210,19 @@ async function collectLockfileEntries(options) {
   if (baseAll.length === 0 && headAll.length === 0) {
     [baseAll, headAll] = await Promise.all([findLockfiles(getBase), findLockfiles(getHead)]);
   }
-  const baseByWs = groupByWorkspace(baseAll);
-  const headByWs = groupByWorkspace(headAll);
-  const allWorkspaces = [.../* @__PURE__ */ new Set([...baseByWs.keys(), ...headByWs.keys()])].sort();
+  const baseGroups = groupByWorkspaceAndEcosystem(baseAll);
+  const headGroups = groupByWorkspaceAndEcosystem(headAll);
+  const allKeys = [.../* @__PURE__ */ new Set([...baseGroups.keys(), ...headGroups.keys()])].sort();
   const entries = await Promise.all(
-    allWorkspaces.map(async (ws) => {
-      const baseFiles = baseByWs.get(ws) ?? [];
-      const headFiles = headByWs.get(ws) ?? [];
-      const pair = resolveLockfilePair(baseFiles, headFiles);
+    allKeys.map(async (key) => {
+      const workspace = (baseGroups.get(key) ?? headGroups.get(key))?.workspace ?? ".";
+      const pair = resolveLockfilePair(
+        baseGroups.get(key)?.files ?? [],
+        headGroups.get(key)?.files ?? []
+      );
       if (!pair) return null;
-      if (pair.migrationNote) onNote?.(`[${ws}]: ${pair.migrationNote}`);
-      return buildLockfileEntry(pair, ws, getBase, getHead);
+      if (pair.migrationNote) onNote?.(`[${workspace}]: ${pair.migrationNote}`);
+      return buildLockfileEntry(pair, workspace, getBase, getHead);
     })
   );
   return entries.filter((e) => e !== null);
