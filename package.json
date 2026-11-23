@@ -55,7 +55,7 @@
   "dependencies": {
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
-    "commander": "14.0.3",
+    "commander": "15.1.0",
     "smol-toml": "1.6.1",
     "yaml": "2.9.0"
   },
