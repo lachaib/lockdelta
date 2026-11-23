@@ -264,7 +264,7 @@ async function flushBlobChunk(requests: BlobRequest[]): Promise<void> {
     const repoData = data[`r${repoIndex}`];
     reqs.forEach((req, fieldIndex) => {
       const field = repoData?.[`f${fieldIndex}`];
-      if (!field || field.__typename !== 'Blob') {
+      if (field?.__typename !== 'Blob') {
         req.resolve(null);
       } else {
         req.resolve({ text: field.text ?? '', isTruncated: field.isTruncated ?? false });

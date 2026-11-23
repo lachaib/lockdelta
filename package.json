@@ -55,16 +55,16 @@
   "dependencies": {
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
-    "commander": "14.0.3",
-    "smol-toml": "1.6.1",
-    "yaml": "2.9.0"
+    "commander": "15.1.0",
+    "smol-toml": "1.9.1",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
-    "@types/node": "25.9.1",
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "26.6.6",
     "husky": "9.1.7",
-    "tsup": "8.5.1",
+    "tsup": "9.0.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.7"
+    "vitest": "5.1.1"
   }
 }
