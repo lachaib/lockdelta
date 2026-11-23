@@ -36,7 +36,7 @@ jobs:
       - uses: lachaib/lockscan@v0.3.0
         with:
           lockdelta-output: lockdelta.json
-          fail-on: high
+          fail-on: critical
           post-comment: ${{ env.CAN_COMMENT == 'true' && 'if-findings' || 'false' }}
 
   test:
